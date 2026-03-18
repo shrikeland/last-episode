@@ -104,47 +104,39 @@ supabaseAdmin
 
 ## Внешние API
 
-### AniList GraphQL API
+### AniList GraphQL API — TMDB title → MAL ID
 - **Endpoint**: `https://graphql.anilist.co`
 - **Метод**: POST, Content-Type: application/json
 - **Auth**: не требуется (публичный API)
-- **Rate limit**: 90 запросов/минуту (не критично — 1 запрос при добавлении)
+- **Rate limit**: 90 запросов/минуту
 
 ```graphql
 query ($search: String) {
   Media(search: $search, type: ANIME, isAdult: false) {
     idMal
-    title {
-      romaji
-      english
-    }
+    title { romaji english }
   }
 }
 ```
 
-### anime-filler-list.com Scraping
-- **URL pattern**: `https://www.anime-filler-list.com/anime/{slug}/`
-- **Search URL**: `https://www.anime-filler-list.com/?s={query}`
-- **Метод**: GET, обычный fetch
+### Jikan API v4 — MAL ID → episodes с filler флагом
+- **Endpoint**: `https://api.jikan.moe/v4/anime/{mal_id}/episodes?page={n}`
+- **Метод**: GET, JSON
 - **Auth**: не требуется
-- **Парсинг**: поиск в HTML строк таблицы по паттерну:
+- **Rate limit**: 3 req/sec, 60 req/min
+- **Пагинация**: до 100 эпизодов на страницу, `pagination.has_next_page`
 
+```json
+{
+  "data": [
+    { "mal_id": 1, "filler": false, "recap": false },
+    { "mal_id": 26, "filler": true, "recap": false }
+  ],
+  "pagination": { "has_next_page": true, "last_visible_page": 3 }
+}
 ```
-Структура страницы аниме:
-  <table>
-    <tbody>
-      <tr>
-        <td>{episode_number}</td>   ← parseInt
-        <td>{episode_title}</td>
-        <td>{type}</td>             ← "Filler" | "Mixed Canon/Filler" | ...
-      </tr>
-    </tbody>
-  </table>
 
-Признаки филлера:
-  type === 'Filler'
-  type === 'Mixed Canon/Filler'
-```
+Фильтр: `filler === true` → `absolute_episode_number = data[i].mal_id`
 
 ---
 
@@ -156,9 +148,8 @@ lib/
     service.ts              ← Supabase Service Role client
   filler/
     filler.service.ts       ← главная логика (fetchAndApplyFillers и др.)
-    anilist.ts              ← AniList GraphQL запрос
-    html-parser.ts          ← парсинг HTML anime-filler-list.com
-    slug.ts                 ← normalizeToSlug()
+    anilist.ts              ← AniList GraphQL: title → MAL ID
+    jikan.ts                ← Jikan API v4: MAL ID → filler episode numbers
 ```
 
 ### `lib/supabase/service.ts`

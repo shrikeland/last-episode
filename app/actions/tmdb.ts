@@ -4,6 +4,7 @@ import * as TmdbService from '@/lib/tmdb/tmdb.service'
 import * as MediaService from '@/lib/supabase/media'
 import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
 import { createServerClient } from '@/lib/supabase/server'
+import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
 import type { TmdbSearchResult, MediaType } from '@/types'
 
 export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
@@ -38,6 +39,17 @@ export async function addMediaItem(
 
   if ((type === 'tv' || type === 'anime') && details.seasons?.length && result.item) {
     await createSeasonsAndEpisodes(supabase, result.item.id, details.seasons)
+
+    if (type === 'anime') {
+      // fire-and-forget — не блокирует ответ пользователю
+      void fetchAndApplyFillers(
+        result.item.id,
+        details.tmdb_id,
+        details.title,
+        details.original_title,
+        details.seasons
+      )
+    }
   }
 
   return { success: true }

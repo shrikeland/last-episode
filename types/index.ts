@@ -58,6 +58,7 @@ export interface Episode {
   runtime_minutes: number | null
   is_watched: boolean
   watched_at: string | null
+  is_filler: boolean
 }
 
 export interface SeasonWithEpisodes extends Season {
