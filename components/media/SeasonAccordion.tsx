@@ -1,6 +1,6 @@
 'use client'
 
-import { useOptimistic, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import {
   Accordion,
@@ -40,49 +40,49 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export function SeasonAccordion({ seasons, mediaItemId: _mediaItemId }: SeasonAccordionProps) {
-  const [optimisticEpisodes, applyOptimistic] = useOptimistic(
-    buildEpisodeMap(seasons),
-    (state: EpisodeMap, action: { id: string; isWatched: boolean }) => ({
-      ...state,
-      [action.id]: {
-        ...state[action.id],
-        is_watched: action.isWatched,
-        watched_at: action.isWatched ? new Date().toISOString() : null,
-      },
-    })
-  )
+  const [episodeMap, setEpisodeMap] = useState<EpisodeMap>(() => buildEpisodeMap(seasons))
   const [, startTransition] = useTransition()
 
+  // Sync with fresh server data after route revalidation
+  useEffect(() => {
+    setEpisodeMap(buildEpisodeMap(seasons))
+  }, [seasons])
+
   function handleToggleEpisode(episodeId: string, isWatched: boolean) {
-    const previous = optimisticEpisodes[episodeId]
+    const previous = episodeMap[episodeId]
+    setEpisodeMap((prev) => ({
+      ...prev,
+      [episodeId]: { ...prev[episodeId], is_watched: isWatched, watched_at: isWatched ? new Date().toISOString() : null },
+    }))
     startTransition(async () => {
-      applyOptimistic({ id: episodeId, isWatched })
       try {
         await withRetry(() => toggleEpisode(episodeId, isWatched))
       } catch {
-        // rollback
-        applyOptimistic({ id: episodeId, isWatched: previous.is_watched })
+        setEpisodeMap((prev) => ({ ...prev, [episodeId]: previous }))
         toast.error('Ошибка сохранения')
       }
     })
   }
 
   function handleMarkSeason(season: SeasonWithEpisodes) {
-    const allWatched = season.episodes.every((e) => optimisticEpisodes[e.id]?.is_watched)
+    const allWatched = season.episodes.every((e) => episodeMap[e.id]?.is_watched)
     const targetWatched = !allWatched
+    const previousMap = { ...episodeMap }
+    const now = new Date().toISOString()
+
+    setEpisodeMap((prev) => {
+      const updated = { ...prev }
+      for (const ep of season.episodes) {
+        updated[ep.id] = { ...updated[ep.id], is_watched: targetWatched, watched_at: targetWatched ? now : null }
+      }
+      return updated
+    })
 
     startTransition(async () => {
-      // optimistic: toggle all episodes in season
-      for (const ep of season.episodes) {
-        applyOptimistic({ id: ep.id, isWatched: targetWatched })
-      }
       try {
         await withRetry(() => markSeason(season.id, targetWatched))
       } catch {
-        // rollback
-        for (const ep of season.episodes) {
-          applyOptimistic({ id: ep.id, isWatched: !targetWatched })
-        }
+        setEpisodeMap(previousMap)
         toast.error('Ошибка сохранения')
       }
     })
@@ -95,7 +95,7 @@ export function SeasonAccordion({ seasons, mediaItemId: _mediaItemId }: SeasonAc
       </h3>
       <Accordion type="multiple" className="space-y-2">
         {seasons.map((season) => {
-          const episodes = season.episodes.map((ep) => optimisticEpisodes[ep.id] ?? ep)
+          const episodes = season.episodes.map((ep) => episodeMap[ep.id] ?? ep)
           const watchedCount = episodes.filter((e) => e.is_watched).length
           const totalCount = season.episode_count
           const allWatched = watchedCount === totalCount && totalCount > 0
