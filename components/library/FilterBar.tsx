@@ -30,6 +30,11 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
   const pathname = usePathname()
   const [search, setSearch] = useState(currentFilters.search ?? '')
   const filtersRef = useRef(currentFilters)
+
+  // Sync search input when filters are reset externally (e.g. "Сбросить фильтры")
+  useEffect(() => {
+    setSearch(currentFilters.search ?? '')
+  }, [currentFilters.search])
   useEffect(() => { filtersRef.current = currentFilters }, [currentFilters])
 
   const updateUrl = useCallback(
