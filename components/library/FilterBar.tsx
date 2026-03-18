@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import {
@@ -29,17 +29,19 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [search, setSearch] = useState(currentFilters.search ?? '')
+  const filtersRef = useRef(currentFilters)
+  useEffect(() => { filtersRef.current = currentFilters }, [currentFilters])
 
   const updateUrl = useCallback(
     (updates: Record<string, string>) => {
       const params = new URLSearchParams()
-      const merged = { ...currentFilters, ...updates }
+      const merged = { ...filtersRef.current, ...updates }
       for (const [k, v] of Object.entries(merged)) {
         if (v && v !== 'all') params.set(k, v)
       }
       router.replace(`${pathname}?${params.toString()}`)
     },
-    [currentFilters, pathname, router]
+    [pathname, router]
   )
 
   // Debounce поиска
