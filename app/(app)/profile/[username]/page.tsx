@@ -4,7 +4,7 @@ import { getUserProfile } from '@/app/actions/users'
 import { StatsOverview } from '@/components/stats/StatsOverview'
 import { StatsBreakdown } from '@/components/stats/StatsBreakdown'
 import { GenreTopList } from '@/components/stats/GenreTopList'
-import { ProfileMediaCard } from '@/components/profile/ProfileMediaCard'
+import { ProfileLibrarySections } from '@/components/profile/ProfileLibrarySections'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,11 +63,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
         ) : mediaItems.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6">Библиотека пуста</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {mediaItems.map((item) => (
-              <ProfileMediaCard key={item.id} item={item} />
-            ))}
-          </div>
+          <ProfileLibrarySections items={mediaItems} />
         )}
       </section>
     </div>
