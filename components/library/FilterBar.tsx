@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import {
@@ -30,12 +30,14 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
   const pathname = usePathname()
   const [search, setSearch] = useState(currentFilters.search ?? '')
   const filtersRef = useRef(currentFilters)
+  const mountedRef = useRef(false)
 
   // Sync search input when filters are reset externally (e.g. "Сбросить фильтры")
   useEffect(() => {
     setSearch(currentFilters.search ?? '')
   }, [currentFilters.search])
   useEffect(() => { filtersRef.current = currentFilters }, [currentFilters])
+  useLayoutEffect(() => { mountedRef.current = true }, [])
 
   const updateUrl = useCallback(
     (updates: Record<string, string>) => {
@@ -49,11 +51,12 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
     [pathname, router]
   )
 
-  // Debounce поиска
+  // Debounce поиска — пропускаем первый рендер
   useEffect(() => {
+    if (!mountedRef.current) return
     const timer = setTimeout(() => {
       updateUrl({ search })
-    }, 300)
+    }, 400)
     return () => clearTimeout(timer)
   }, [search, updateUrl])
 

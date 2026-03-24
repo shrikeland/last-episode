@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Search, Loader2 } from 'lucide-react'
 import { searchTmdb } from '@/app/actions/tmdb'
@@ -12,12 +12,11 @@ export function SearchInput() {
   const [results, setResults] = useState<TmdbSearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-  // debounce timer ref
-  const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleChange = useCallback((value: string) => {
+  const handleChange = (value: string) => {
     setQuery(value)
-    if (timer) clearTimeout(timer)
+    if (timerRef.current) clearTimeout(timerRef.current)
 
     if (!value.trim()) {
       setResults([])
@@ -25,7 +24,7 @@ export function SearchInput() {
       return
     }
 
-    const t = setTimeout(async () => {
+    timerRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
         const data = await searchTmdb(value)
@@ -34,9 +33,8 @@ export function SearchInput() {
       } finally {
         setIsLoading(false)
       }
-    }, 300)
-    setTimer(t)
-  }, [timer])
+    }, 400)
+  }
 
   return (
     <div className="space-y-4">
