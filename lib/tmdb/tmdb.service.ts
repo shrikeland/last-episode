@@ -89,6 +89,74 @@ export async function getMovieDetails(tmdbId: number): Promise<TmdbDetails> {
   }
 }
 
+export interface TmdbCredits {
+  director: string | null
+  cast: string[]
+}
+
+export interface TmdbBasicInfo {
+  title: string
+  overview: string
+  genres: string[]
+  posterPath: string | null
+  releaseYear: number | null
+  voteAverage: number | null
+  voteCount: number | null
+  runtimeMinutes: number | null
+  seasonCount: number | null
+}
+
+export async function getCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbCredits> {
+  const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
+  const res = await fetch(url, { next: { revalidate: 0 } })
+  if (!res.ok) return { director: null, cast: [] }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = await res.json()
+  const director =
+    mediaType === 'movie'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? ((data.crew as any[]) ?? []).find((c) => c.job === 'Director')?.name ?? null
+      : null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cast = ((data.cast as any[]) ?? []).slice(0, 6).map((c) => c.name as string)
+  return { director, cast }
+}
+
+export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbBasicInfo> {
+  const url = buildUrl(`/${mediaType}/${tmdbId}`)
+  const res = await fetch(url, { next: { revalidate: 0 } })
+  if (!res.ok) throw new Error(`TMDB ${mediaType} basic info failed: ${res.status}`)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r: any = await res.json()
+  if (mediaType === 'movie') {
+    return {
+      title: r.title ?? '',
+      overview: r.overview ?? '',
+      genres: (r.genres ?? []).map((g: { name: string }) => g.name),
+      posterPath: r.poster_path ?? null,
+      releaseYear: extractYear(r.release_date),
+      voteAverage: r.vote_average ?? null,
+      voteCount: r.vote_count ?? null,
+      runtimeMinutes: r.runtime ?? null,
+      seasonCount: null,
+    }
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const seasonCount = ((r.seasons ?? []) as any[]).filter((s) => s.season_number > 0).length
+    return {
+      title: r.name ?? '',
+      overview: r.overview ?? '',
+      genres: (r.genres ?? []).map((g: { name: string }) => g.name),
+      posterPath: r.poster_path ?? null,
+      releaseYear: extractYear(r.first_air_date),
+      voteAverage: r.vote_average ?? null,
+      voteCount: r.vote_count ?? null,
+      runtimeMinutes: r.episode_run_time?.[0] ?? null,
+      seasonCount: seasonCount || null,
+    }
+  }
+}
+
 export async function getTVDetails(tmdbId: number, type: MediaType): Promise<TmdbDetails> {
   const url = buildUrl(`/tv/${tmdbId}`)
   const res = await fetch(url, { next: { revalidate: 0 } })

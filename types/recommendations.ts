@@ -21,3 +21,18 @@ export interface TasteProfile {
   summary: string
   updated_at: string
 }
+
+export interface RecommendationDetails {
+  title: string
+  year: number | null
+  type: string
+  posterUrl: string | null
+  overview: string
+  genres: string[]
+  voteAverage: number | null
+  voteCount: number | null
+  runtime: string | null
+  director: string | null
+  cast: string[]
+  reason: string
+}

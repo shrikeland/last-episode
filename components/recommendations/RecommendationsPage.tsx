@@ -138,16 +138,18 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
         </p>
       </div>
 
-      {/* Taste profile block */}
-      <TasteProfileCard
-        profile={profile}
-        itemCount={itemCount}
-        onUpdate={handleUpdateProfile}
-        isUpdating={isUpdatingProfile}
-      />
+      {/* Taste profile block — hidden during streaming/results */}
+      {phase === 'questionnaire' && (
+        <TasteProfileCard
+          profile={profile}
+          itemCount={itemCount}
+          onUpdate={handleUpdateProfile}
+          isUpdating={isUpdatingProfile}
+        />
+      )}
 
       {/* Too few items blocker */}
-      {tooFewItems && (
+      {tooFewItems && phase === 'questionnaire' && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
           <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
           <span>

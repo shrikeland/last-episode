@@ -12,7 +12,8 @@ const SYSTEM_PROMPT = `Ты — кинокуратор с безупречным
 Сначала напиши короткое вступление (2–3 предложения, обращайся на "ты"), затем — строго JSON-массив.
 Не пиши ничего после JSON-массива. Используй только типы: movie, tv, anime.
 В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: "Ghost in the Shell", "Neon Genesis Evangelion", "Inception". Примеры неправильно: "Гhosts in the Shell", "Тексhnолиз".
-Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.`
+Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.
+Рекомендуй ТОЛЬКО признанные, качественные тайтлы с высоким рейтингом (IMDb ≥ 6.0 или эквивалент). Никакого мусора, B-movie без культового статуса, прямых видеорелизов или малоизвестных проходных работ. Если подходящих качественных тайтлов мало — лучше предложи меньше, чем рекомендовать посредственность.`
 
 function buildUserPrompt(
   summary: string,
@@ -22,12 +23,13 @@ function buildUserPrompt(
   const exclusionsText =
     answers.exclusions.length > 0 ? answers.exclusions.join(', ') : 'нет ограничений'
 
-  const contentTypeLabels: Record<string, string> = {
-    movie: 'фильм',
-    animation: 'мультфильм',
-    tv: 'сериал',
-    anime: 'аниме',
-    any: 'любой тип',
+  // Strict content type constraints sent directly to LLM
+  const contentTypeConstraints: Record<string, string> = {
+    movie: 'СТРОГО только фильмы (type: "movie"). Аниме, сериалы и мультфильмы — ЗАПРЕЩЕНЫ.',
+    animation: 'СТРОГО только мультфильмы (анимационные фильмы/сериалы). Игровые фильмы — ЗАПРЕЩЕНЫ.',
+    tv: 'СТРОГО только сериалы (type: "tv"). Фильмы и аниме — ЗАПРЕЩЕНЫ.',
+    anime: 'СТРОГО только аниме (type: "anime"). Фильмы и обычные сериалы — ЗАПРЕЩЕНЫ.',
+    any: 'Любой тип контента приветствуется.',
   }
 
   const familiarityLabels: Record<string, string> = {
@@ -42,7 +44,7 @@ ${summary}
 ${libraryContext}
 
 Сегодняшняя анкета:
-- Что хочу посмотреть: ${contentTypeLabels[answers.contentType] ?? answers.contentType}
+- Тип контента: ${contentTypeConstraints[answers.contentType] ?? answers.contentType}
 - Настроение: ${answers.mood}
 - Исключения: ${exclusionsText}
 - Из чего выбирать: ${familiarityLabels[answers.familiarity] ?? answers.familiarity}
@@ -161,13 +163,29 @@ export async function POST(request: Request): Promise<Response> {
     const stream = new ReadableStream({
       async start(controller) {
         const JSON_MARKER = '```json'
-        const MARKER_SAFE_BUFFER = JSON_MARKER.length - 1 // keep last N chars buffered
+        // Keep last 6 chars buffered: covers ```json (7 chars) and \n[ (2 chars) before they're sent
+        const MARKER_SAFE_BUFFER = JSON_MARKER.length - 1
 
         let sseBuffer = ''
         let introAccumulated = ''
         let introAlreadySent = 0  // chars already flushed to client
         let jsonBuffer = ''
         let introSent = false
+
+        // Detect JSON start: either ```json marker or a raw JSON array on its own line (\n[)
+        function detectJsonStart(text: string): { detectedAt: number; jsonContentStart: number } | null {
+          const codeIdx = text.indexOf(JSON_MARKER)
+          const rawIdx = text.search(/\n\s*\[/)
+          if (codeIdx !== -1 && (rawIdx === -1 || codeIdx <= rawIdx)) {
+            return { detectedAt: codeIdx, jsonContentStart: codeIdx + JSON_MARKER.length }
+          }
+          if (rawIdx !== -1) {
+            // Skip the leading \n, start json at [
+            const bracketOffset = text.slice(rawIdx).search(/\[/)
+            return { detectedAt: rawIdx, jsonContentStart: rawIdx + bracketOffset }
+          }
+          return null
+        }
 
         try {
           while (true) {
@@ -184,14 +202,14 @@ export async function POST(request: Request): Promise<Response> {
 
               if (!introSent) {
                 introAccumulated += content
-                const markerIdx = introAccumulated.indexOf(JSON_MARKER)
-                if (markerIdx !== -1) {
+                const found = detectJsonStart(introAccumulated)
+                if (found) {
                   // Send only the unsent portion of intro before the marker
-                  const unsent = introAccumulated.slice(introAlreadySent, markerIdx).trimEnd()
+                  const unsent = introAccumulated.slice(introAlreadySent, found.detectedAt).trimEnd()
                   if (unsent) controller.enqueue(encoder.encode(unsent))
                   controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
                   introSent = true
-                  jsonBuffer = introAccumulated.slice(markerIdx + JSON_MARKER.length)
+                  jsonBuffer = introAccumulated.slice(found.jsonContentStart)
                 } else {
                   // Safe-buffer: keep last MARKER_SAFE_BUFFER chars to avoid partial-marker leaking
                   const safeEnd = Math.max(introAlreadySent, introAccumulated.length - MARKER_SAFE_BUFFER)
@@ -203,6 +221,24 @@ export async function POST(request: Request): Promise<Response> {
               } else {
                 jsonBuffer += content
               }
+            }
+          }
+
+          // If LLM finished but intro marker was never found, extract JSON from full buffer
+          if (!introSent) {
+            const found = detectJsonStart(introAccumulated)
+            if (found) {
+              const unsent = introAccumulated.slice(introAlreadySent, found.detectedAt).trimEnd()
+              if (unsent) controller.enqueue(encoder.encode(unsent))
+              controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
+              jsonBuffer = introAccumulated.slice(found.jsonContentStart)
+            } else {
+              // No JSON at all — flush remaining intro and signal done with empty cards
+              const remaining = introAccumulated.slice(introAlreadySent).trim()
+              if (remaining) controller.enqueue(encoder.encode(remaining))
+              controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
+              controller.enqueue(encoder.encode(CARDS_MARKER + '[]' + '\n'))
+              return
             }
           }
 
