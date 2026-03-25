@@ -140,7 +140,7 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
             ) : (
               <>
                 <Plus className="h-3.5 w-3.5" />
-                {isPending ? 'Добавляю...' : 'Добавить в список'}
+                {isPending ? 'Добавляю...' : 'Добавить'}
               </>
             )}
           </Button>

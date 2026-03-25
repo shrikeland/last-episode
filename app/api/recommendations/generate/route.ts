@@ -11,7 +11,7 @@ const CARDS_MARKER = '\n__CARDS__:'
 const SYSTEM_PROMPT = `Ты — кинокуратор с безупречным вкусом. Подбирай рекомендации точно и персонально.
 Сначала напиши короткое вступление (2–3 предложения, обращайся на "ты"), затем — строго JSON-массив.
 Не пиши ничего после JSON-массива. Используй только типы: movie, tv, anime.
-В поле "title" используй официальное русское название тайтла (как оно известно в России). Если русского названия нет — используй оригинальное.
+В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: "Ghost in the Shell", "Neon Genesis Evangelion", "Inception". Примеры неправильно: "Гhosts in the Shell", "Тексhnолиз".
 Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.`
 
 function buildUserPrompt(
@@ -160,6 +160,9 @@ export async function POST(request: Request): Promise<Response> {
 
     const stream = new ReadableStream({
       async start(controller) {
+        const JSON_MARKER = '```json'
+        const MARKER_SAFE_BUFFER = JSON_MARKER.length - 1 // keep last N chars buffered
+
         let sseBuffer = ''
         let introAccumulated = ''
         let introAlreadySent = 0  // chars already flushed to client
@@ -181,19 +184,21 @@ export async function POST(request: Request): Promise<Response> {
 
               if (!introSent) {
                 introAccumulated += content
-                const markerIdx = introAccumulated.indexOf('```json')
+                const markerIdx = introAccumulated.indexOf(JSON_MARKER)
                 if (markerIdx !== -1) {
-                  // Only send the unsent portion of intro before the marker
+                  // Send only the unsent portion of intro before the marker
                   const unsent = introAccumulated.slice(introAlreadySent, markerIdx).trimEnd()
                   if (unsent) controller.enqueue(encoder.encode(unsent))
                   controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
                   introSent = true
-                  // Collect whatever came after ```json in this chunk
-                  jsonBuffer = introAccumulated.slice(markerIdx + '```json'.length)
+                  jsonBuffer = introAccumulated.slice(markerIdx + JSON_MARKER.length)
                 } else {
-                  // Still streaming intro — send chunk to client
-                  controller.enqueue(encoder.encode(content))
-                  introAlreadySent += content.length
+                  // Safe-buffer: keep last MARKER_SAFE_BUFFER chars to avoid partial-marker leaking
+                  const safeEnd = Math.max(introAlreadySent, introAccumulated.length - MARKER_SAFE_BUFFER)
+                  if (safeEnd > introAlreadySent) {
+                    controller.enqueue(encoder.encode(introAccumulated.slice(introAlreadySent, safeEnd)))
+                    introAlreadySent = safeEnd
+                  }
                 }
               } else {
                 jsonBuffer += content
