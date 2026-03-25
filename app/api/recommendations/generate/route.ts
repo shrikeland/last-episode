@@ -246,9 +246,11 @@ export async function POST(request: Request): Promise<Response> {
           }
 
           // Groq stream finished — parse JSON and enrich
-          const jsonMatch = jsonBuffer.match(/\[[\s\S]*\]/)
-          if (jsonMatch) {
-            const rawItems = JSON.parse(jsonMatch[0]) as {
+          // Use bracket-counting instead of greedy regex to avoid capturing trailing
+          // text that the LLM might add after the closing ] (e.g. "В списке [5 фильмов]")
+          const jsonArrayStr = extractJsonArray(jsonBuffer)
+          if (jsonArrayStr) {
+            const rawItems = JSON.parse(jsonArrayStr) as {
               title: string
               year: number | null
               type: string
@@ -258,6 +260,28 @@ export async function POST(request: Request): Promise<Response> {
             controller.enqueue(encoder.encode(CARDS_MARKER + JSON.stringify(cards) + '\n'))
           } else {
             controller.enqueue(encoder.encode(CARDS_MARKER + '[]' + '\n'))
+          }
+
+          // Finds the first JSON array in text by counting brackets (ignores greedy trailing content)
+          function extractJsonArray(text: string): string | null {
+            const start = text.indexOf('[')
+            if (start === -1) return null
+            let depth = 0
+            let inString = false
+            let escape = false
+            for (let i = start; i < text.length; i++) {
+              const c = text[i]
+              if (escape) { escape = false; continue }
+              if (c === '\\' && inString) { escape = true; continue }
+              if (c === '"') { inString = !inString; continue }
+              if (inString) continue
+              if (c === '[' || c === '{') depth++
+              else if (c === ']' || c === '}') {
+                depth--
+                if (depth === 0) return text.slice(start, i + 1)
+              }
+            }
+            return null
           }
         } catch (err) {
           console.error('[recommendations/generate stream]', err)
