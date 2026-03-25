@@ -8,7 +8,7 @@ interface StatsOverviewProps {
 
 export function StatsOverview({ stats }: StatsOverviewProps) {
   const typeEntries = (
-    ['movie', 'tv', 'anime'] as const
+    ['movie', 'animation', 'tv', 'anime'] as const
   ).map((type) => ({
     type,
     label: MEDIA_TYPE_LABELS[type],
@@ -37,7 +37,7 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       </div>
 
       {/* By type */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {typeEntries.map(({ type, label, count, minutes }) => (
           <div
             key={type}

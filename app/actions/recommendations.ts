@@ -17,7 +17,7 @@ export async function getRecommendationDetails(
   type: string,
   reason: string
 ): Promise<{ data?: RecommendationDetails; error?: string }> {
-  const mediaType = type === 'movie' ? 'movie' : 'tv'
+  const mediaType = (type === 'movie' || type === 'animation') ? 'movie' : 'tv'
   try {
     const [info, credits] = await Promise.all([
       getBasicInfo(tmdbId, mediaType),
@@ -62,8 +62,8 @@ export async function addRecommendedTitle(
 
   try {
     const details =
-      type === 'movie'
-        ? await getMovieDetails(tmdbId)
+      (type === 'movie' || type === 'animation')
+        ? await getMovieDetails(tmdbId, type as 'movie' | 'animation')
         : await getTVDetails(tmdbId, type)
 
     const result = await createMediaItem(supabase, user.id, details)

@@ -30,7 +30,10 @@ export function normalizeType(
   genreIds: number[],
   originCountries: string[]
 ): MediaType {
-  if (mediaType === 'movie') return 'movie'
+  if (mediaType === 'movie') {
+    if (genreIds.includes(16)) return 'animation'
+    return 'movie'
+  }
   if (genreIds.includes(16) && originCountries.includes('JP')) return 'anime'
   return 'tv'
 }
@@ -68,7 +71,7 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
     }))
 }
 
-export async function getMovieDetails(tmdbId: number): Promise<TmdbDetails> {
+export async function getMovieDetails(tmdbId: number, type: 'movie' | 'animation' = 'movie'): Promise<TmdbDetails> {
   const url = buildUrl(`/movie/${tmdbId}`)
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`TMDB movie details failed: ${res.status}`)
@@ -76,9 +79,15 @@ export async function getMovieDetails(tmdbId: number): Promise<TmdbDetails> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await res.json()
 
+  // Auto-detect animation type by genre 16 if not explicitly provided
+  const resolvedType: MediaType =
+    type === 'movie' && (r.genre_ids ?? r.genres?.map((g: { id: number }) => g.id) ?? []).includes(16)
+      ? 'animation'
+      : type
+
   return {
     tmdb_id: r.id,
-    type: 'movie',
+    type: resolvedType,
     title: r.title ?? '',
     original_title: r.original_title ?? '',
     poster_path: r.poster_path ?? null,

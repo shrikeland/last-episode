@@ -1,6 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getMediaItems } from '@/lib/supabase/media'
-import { FilterBar } from '@/components/library/FilterBar'
+import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
 import type { MediaFilters, SortOptions, MediaStatus, SortField, SortDirection } from '@/types'
 

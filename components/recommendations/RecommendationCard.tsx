@@ -14,18 +14,20 @@ import type { MediaType } from '@/types'
 
 const TYPE_LABELS: Record<string, string> = {
   movie: 'Фильм',
+  animation: 'Мультфильм',
   tv: 'Сериал',
   anime: 'Аниме',
 }
 
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   movie: Film,
+  animation: Film,
   tv: Tv,
   anime: Sparkles,
 }
 
 function normalizeType(type: string): MediaType {
-  if (type === 'movie' || type === 'tv' || type === 'anime') return type as MediaType
+  if (type === 'movie' || type === 'animation' || type === 'tv' || type === 'anime') return type as MediaType
   return 'movie'
 }
 

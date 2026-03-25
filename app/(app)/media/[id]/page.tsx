@@ -27,7 +27,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
   if (!item) notFound()
 
   const seasons =
-    item.type !== 'movie'
+    (item.type !== 'movie' && item.type !== 'animation')
       ? await getSeasonsWithEpisodes(supabase, id)
       : []
 

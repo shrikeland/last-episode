@@ -10,7 +10,7 @@ const CARDS_MARKER = '\n__CARDS__:'
 
 const SYSTEM_PROMPT = `Ты — кинокуратор с безупречным вкусом. Подбирай рекомендации точно и персонально.
 Сначала напиши короткое вступление (2–3 предложения, обращайся на "ты"), затем — строго JSON-массив.
-Не пиши ничего после JSON-массива. Используй только типы: movie, tv, anime.
+Не пиши ничего после JSON-массива. Используй только типы: movie, animation, tv, anime. Тип animation — для анимационных полнометражных фильмов (например, Disney/Pixar/DreamWorks), не аниме.
 В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: "Ghost in the Shell", "Neon Genesis Evangelion", "Inception". Примеры неправильно: "Гhosts in the Shell", "Тексhnолиз".
 Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.
 Рекомендуй ТОЛЬКО признанные, качественные тайтлы с высоким рейтингом (IMDb ≥ 6.0 или эквивалент). Никакого мусора, B-movie без культового статуса, прямых видеорелизов или малоизвестных проходных работ. Если подходящих качественных тайтлов мало — лучше предложи меньше, чем рекомендовать посредственность.`
@@ -26,7 +26,7 @@ function buildUserPrompt(
   // Strict content type constraints sent directly to LLM
   const contentTypeConstraints: Record<string, string> = {
     movie: 'СТРОГО только фильмы (type: "movie"). Аниме, сериалы и мультфильмы — ЗАПРЕЩЕНЫ.',
-    animation: 'СТРОГО только мультфильмы (анимационные фильмы/сериалы). Игровые фильмы — ЗАПРЕЩЕНЫ.',
+    animation: 'СТРОГО только западные анимационные полнометражные фильмы (Disney, Pixar, DreamWorks, Blue Sky, Ghibli и подобные). Тип СТРОГО "animation". ЗАПРЕЩЕНЫ: японское аниме (для него type: "anime"), игровые фильмы, мультсериалы. Только признанные полнометражные мультфильмы НЕ японского производства.',
     tv: 'СТРОГО только сериалы (type: "tv"). Фильмы и аниме — ЗАПРЕЩЕНЫ.',
     anime: 'СТРОГО только аниме (type: "anime"). Фильмы и обычные сериалы — ЗАПРЕЩЕНЫ.',
     any: 'Любой тип контента приветствуется.',
@@ -51,7 +51,7 @@ ${libraryContext}
 
 Подбери топ-5 рекомендаций. Сначала вступление (2–3 предложения), потом строго в формате:
 \`\`\`json
-[{"title": "Название", "year": 2023, "type": "movie|tv|anime", "reason": "Почему подойдёт сегодня"}]
+[{"title": "Название", "year": 2023, "type": "movie|animation|tv|anime", "reason": "Почему подойдёт сегодня"}]
 \`\`\``
 }
 
@@ -67,11 +67,14 @@ async function enrichWithTmdb(
           results = await search(item.title)
         }
         const match = results[0]
+        // Use TMDB's normalized type when available — TMDB has actual genre+origin data
+        // and can correct LLM mistakes (e.g. anime classified as animation)
+        const resolvedType = match?.type ?? item.type
         return {
           // Use TMDB title (ru-RU) when found — avoids English names from LLM
           title: match?.title ?? item.title,
           year: item.year ?? match?.release_year ?? null,
-          type: item.type,
+          type: resolvedType,
           reason: item.reason,
           tmdbId: match?.tmdb_id ?? null,
           posterUrl: match?.poster_path ? buildPosterUrl(match.poster_path) : null,

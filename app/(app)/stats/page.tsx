@@ -19,7 +19,7 @@ export default async function StatsPage() {
   const mediaItems = await getMediaItems(supabase, user.id)
 
   const tvAnimeIds = mediaItems
-    .filter((i) => i.type !== 'movie')
+    .filter((i) => i.type !== 'movie' && i.type !== 'animation')
     .map((i) => i.id)
 
   let watchedEpisodes: EpisodeForStats[] = []

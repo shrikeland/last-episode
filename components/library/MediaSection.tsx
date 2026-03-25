@@ -4,6 +4,7 @@ import type { MediaItem, MediaType } from '@/types'
 
 const SECTION_ICONS: Record<MediaType, string> = {
   movie: '🎬',
+  animation: '🎨',
   tv: '📺',
   anime: '⛩️',
 }

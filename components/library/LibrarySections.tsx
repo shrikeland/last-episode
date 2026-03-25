@@ -3,7 +3,7 @@ import { MediaGrid } from './MediaGrid'
 import { EmptyState } from './EmptyState'
 import type { MediaItem, MediaType } from '@/types'
 
-const TYPE_ORDER: MediaType[] = ['movie', 'tv', 'anime']
+const TYPE_ORDER: MediaType[] = ['movie', 'animation', 'tv', 'anime']
 
 interface LibrarySectionsProps {
   items: MediaItem[]
@@ -21,7 +21,7 @@ export function LibrarySections({ items, hasFilters }: LibrarySectionsProps) {
 
   const grouped = items.reduce<Record<MediaType, MediaItem[]>>(
     (acc, item) => { acc[item.type].push(item); return acc },
-    { movie: [], tv: [], anime: [] }
+    { movie: [], animation: [], tv: [], anime: [] }
   )
 
   return (

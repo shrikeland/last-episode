@@ -2,10 +2,11 @@ import { ProfileMediaRow } from './ProfileMediaRow'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import type { MediaItem, MediaType } from '@/types'
 
-const TYPE_ORDER: MediaType[] = ['movie', 'tv', 'anime']
+const TYPE_ORDER: MediaType[] = ['movie', 'animation', 'tv', 'anime']
 
 const SECTION_ICONS: Record<MediaType, string> = {
   movie: '🎬',
+  animation: '🎨',
   tv: '📺',
   anime: '⛩️',
 }
@@ -17,7 +18,7 @@ interface ProfileLibrarySectionsProps {
 export function ProfileLibrarySections({ items }: ProfileLibrarySectionsProps) {
   const grouped = items.reduce<Record<MediaType, MediaItem[]>>(
     (acc, item) => { acc[item.type].push(item); return acc },
-    { movie: [], tv: [], anime: [] }
+    { movie: [], animation: [], tv: [], anime: [] }
   )
 
   return (

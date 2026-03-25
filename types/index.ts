@@ -1,4 +1,4 @@
-export type MediaType = 'movie' | 'tv' | 'anime'
+export type MediaType = 'movie' | 'animation' | 'tv' | 'anime'
 
 export type MediaStatus =
   | 'watching'
@@ -17,6 +17,7 @@ export const MEDIA_STATUS_LABELS: Record<MediaStatus, string> = {
 
 export const MEDIA_TYPE_LABELS: Record<MediaType, string> = {
   movie: 'Фильм',
+  animation: 'Мультфильм',
   tv: 'Сериал',
   anime: 'Аниме',
 }

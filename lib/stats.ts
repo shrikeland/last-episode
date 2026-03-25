@@ -2,7 +2,7 @@ import type { MediaItem, WatchStats } from '@/types'
 
 export interface EpisodeForStats {
   runtime_minutes: number | null
-  media_type: 'movie' | 'tv' | 'anime'
+  media_type: 'movie' | 'animation' | 'tv' | 'anime'
 }
 
 export function computeStats(
@@ -11,14 +11,15 @@ export function computeStats(
 ): WatchStats {
   const byType: WatchStats['byType'] = {
     movie: { count: 0, minutes: 0 },
+    animation: { count: 0, minutes: 0 },
     tv: { count: 0, minutes: 0 },
     anime: { count: 0, minutes: 0 },
   }
 
   for (const item of mediaItems) {
     byType[item.type].count++
-    if (item.type === 'movie' && item.status === 'completed') {
-      byType.movie.minutes += item.runtime_minutes ?? 0
+    if ((item.type === 'movie' || item.type === 'animation') && item.status === 'completed') {
+      byType[item.type].minutes += item.runtime_minutes ?? 0
     }
   }
 

@@ -25,8 +25,8 @@ export async function addMediaItem(
 
   let details
   try {
-    if (type === 'movie') {
-      details = await TmdbService.getMovieDetails(tmdbId)
+    if (type === 'movie' || type === 'animation') {
+      details = await TmdbService.getMovieDetails(tmdbId, type)
     } else {
       details = await TmdbService.getTVDetails(tmdbId, type)
     }
