@@ -156,6 +156,11 @@ export type Database = {
         Insert: Omit<Profile, 'created_at'>
         Update: Partial<Omit<Profile, 'id' | 'created_at'>>
       }
+      taste_profiles: {
+        Row: { id: string; user_id: string; summary: string; updated_at: string }
+        Insert: { user_id: string; summary: string; updated_at?: string }
+        Update: { summary?: string; updated_at?: string }
+      }
     }
   }
 }

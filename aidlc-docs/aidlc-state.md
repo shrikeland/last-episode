@@ -85,6 +85,11 @@
   - [x] Infrastructure Design — SKIP
   - [x] Code Generation
   - [x] Build Verification — npm run build ✓ (username case, centered headers, inline password validation)
+- [x] Unit 11 - AI Recommendations
+  - [x] Functional Design — SKIP
+  - [x] Infrastructure Design — SKIP
+  - [x] Code Generation
+  - [x] Build Verification — npm run build ✓ (/recommendations, Groq streaming, taste_profiles table)
 - [ ] Build and Test
 
 ### OPERATIONS PHASE

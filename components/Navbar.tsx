@@ -6,12 +6,13 @@ import { toast } from 'sonner'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Film, PlusCircle, BarChart2, LogOut, Users } from 'lucide-react'
+import { Film, PlusCircle, BarChart2, LogOut, Users, Sparkles } from 'lucide-react'
 
 const NAV_LINKS = [
   { href: '/library', label: 'Библиотека', icon: Film },
   { href: '/search', label: 'Добавить', icon: PlusCircle },
   { href: '/stats', label: 'Статистика', icon: BarChart2 },
+  { href: '/recommendations', label: 'Для тебя', icon: Sparkles },
   { href: '/community', label: 'Сообщество', icon: Users },
 ] as const
 
