@@ -75,6 +75,8 @@ export interface TmdbSearchResult {
   poster_path: string | null
   release_year: number | null
   overview: string
+  vote_average?: number | null
+  vote_count?: number | null
 }
 
 export interface TmdbDetails extends TmdbSearchResult {

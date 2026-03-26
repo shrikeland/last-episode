@@ -11,9 +11,11 @@ const CARDS_MARKER = '\n__CARDS__:'
 const SYSTEM_PROMPT = `Ты — кинокуратор с безупречным вкусом. Подбирай рекомендации точно и персонально.
 Сначала напиши короткое вступление (2–3 предложения, обращайся на "ты"), затем — строго JSON-массив.
 Не пиши ничего после JSON-массива. Используй только типы: movie, animation, tv, anime. Тип animation — для анимационных полнометражных фильмов (например, Disney/Pixar/DreamWorks), не аниме.
-В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: "Ghost in the Shell", "Neon Genesis Evangelion", "Inception". Примеры неправильно: "Гhosts in the Shell", "Тексhnолиз".
+В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не добавляй год в поле title — год должен быть ТОЛЬКО в отдельном поле year. НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: {"title": "Inception", "year": 2010}. Примеры неправильно: {"title": "Inception 2010", "year": 2010}.
+СТРОГО ЗАПРЕЩЕНЫ следующие форматы контента — они НЕ являются фильмами/сериалами: концерты, live-выступления, stage performance, мюзикальные шоу, making-of, закулисные съёмки, fan events, фанатские встречи, idol events, компиляции, сборники, YouTube-видео, документальные концертные программы. Рекомендуй ИСКЛЮЧИТЕЛЬНО художественные фильмы, анимационные фильмы, сериалы или аниме-сериалы/фильмы.
 Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.
-Рекомендуй ТОЛЬКО признанные, качественные тайтлы с высоким рейтингом (IMDb ≥ 6.0 или эквивалент). Никакого мусора, B-movie без культового статуса, прямых видеорелизов или малоизвестных проходных работ. Если подходящих качественных тайтлов мало — лучше предложи меньше, чем рекомендовать посредственность.`
+Рекомендуй ТОЛЬКО признанные тайтлы с рейтингом IMDb ≥ 6.5 И не менее 1000 голосов на IMDb/TMDB. Никакого мусора, B-movie без культового статуса, прямых видеорелизов или малоизвестных проходных работ. Если подходящих качественных тайтлов мало — лучше предложи меньше, чем рекомендовать посредственность.
+Старайся разнообразить подборку: не предлагай одни и те же очевидные хиты из топ-10. Ищи достойные, но менее растиражированные работы режиссёров/студий, которые подойдут под профиль.`
 
 function buildUserPrompt(
   summary: string,
@@ -38,6 +40,16 @@ function buildUserPrompt(
     include_rewatch: 'можно предложить пересмотреть любимое',
   }
 
+  // Inject a random seed phrase so the LLM doesn't give the same top-10 results every time
+  const diversityHints = [
+    'Сфокусируйся на менее очевидных, но ценных работах.',
+    'Избегай самых популярных хитов — ищи скрытые жемчужины.',
+    'Предпочти культовые, но недооценённые тайтлы.',
+    'Отдай приоритет авторскому кино и нестандартным работам.',
+    'Предложи разнообразный микс — разные страны, эпохи, стили.',
+  ]
+  const diversityHint = diversityHints[Math.floor(Math.random() * diversityHints.length)]
+
   return `Профиль вкусов:
 ${summary}
 
@@ -49,30 +61,58 @@ ${libraryContext}
 - Исключения: ${exclusionsText}
 - Из чего выбирать: ${familiarityLabels[answers.familiarity] ?? answers.familiarity}
 
-Подбери топ-5 рекомендаций. Сначала вступление (2–3 предложения), потом строго в формате:
+Подбери топ-5 рекомендаций. ${diversityHint} Сначала вступление (2–3 предложения), потом строго в формате:
 \`\`\`json
 [{"title": "Название", "year": 2023, "type": "movie|animation|tv|anime", "reason": "Почему подойдёт сегодня"}]
 \`\`\``
 }
 
+// Strip trailing year that LLM sometimes adds to the title field (e.g. "Marriage Story 2019")
+function stripTrailingYear(title: string): string {
+  return title.replace(/\s*\(?\d{4}\)?\s*$/, '').trim()
+}
+
+// Minimum quality bar: at least 200 votes on TMDB to filter out concerts/events/obscure content
+const MIN_VOTE_COUNT = 200
+
 async function enrichWithTmdb(
   items: { title: string; year: number | null; type: string; reason: string }[]
 ): Promise<RecommendationCardData[]> {
-  return Promise.all(
+  const results = await Promise.all(
     items.map(async (item) => {
       try {
+        const cleanTitle = stripTrailingYear(item.title)
         // Try with year first for precision, then without for better recall
-        let results = item.year ? await search(`${item.title} ${item.year}`) : []
-        if (results.length === 0) {
-          results = await search(item.title)
+        let searchResults = item.year ? await search(`${cleanTitle} ${item.year}`) : []
+        if (searchResults.length === 0) {
+          searchResults = await search(cleanTitle)
         }
-        const match = results[0]
+
+        // Filter: only consider results with enough votes (weeds out concerts, events, obscure content)
+        const qualityResults = searchResults.filter(
+          (r) => r.vote_count == null || r.vote_count >= MIN_VOTE_COUNT
+        )
+        // Prefer quality results; fall back to any result only if no quality match found
+        const candidates = qualityResults.length > 0 ? qualityResults : searchResults
+
+        // Pick best match: closest release year if year is known, otherwise first result
+        let match = candidates[0]
+        if (match && item.year && candidates.length > 1) {
+          const byYear = candidates.find((r) => r.release_year === item.year)
+          if (byYear) match = byYear
+        }
+
+        // Reject if still no quality match at all
+        if (match && (match.vote_count ?? 0) < MIN_VOTE_COUNT) {
+          return null
+        }
+
         // Use TMDB's normalized type when available — TMDB has actual genre+origin data
         // and can correct LLM mistakes (e.g. anime classified as animation)
         const resolvedType = match?.type ?? item.type
         return {
           // Use TMDB title (ru-RU) when found — avoids English names from LLM
-          title: match?.title ?? item.title,
+          title: match?.title ?? cleanTitle,
           year: item.year ?? match?.release_year ?? null,
           type: resolvedType,
           reason: item.reason,
@@ -84,6 +124,8 @@ async function enrichWithTmdb(
       }
     })
   )
+  // Filter out null (rejected low-quality items)
+  return results.filter((r): r is NonNullable<typeof r> => r !== null) as RecommendationCardData[]
 }
 
 function buildLibraryContext(
@@ -155,6 +197,10 @@ export async function POST(request: Request): Promise<Response> {
       items.map((i) => ({ title: i.title, status: i.status, rating: i.rating })),
       questionnaire.familiarity
     )
+    // Hard server-side exclusion set: for new_only, filter enriched cards by tmdb_id
+    const libraryTmdbIds = questionnaire.familiarity === 'new_only'
+      ? new Set(items.map((i) => i.tmdb_id).filter(Boolean))
+      : null
 
     const userPrompt = buildUserPrompt(profileRow.summary, questionnaire, libraryContext)
 
@@ -256,7 +302,11 @@ export async function POST(request: Request): Promise<Response> {
               type: string
               reason: string
             }[]
-            const cards = await enrichWithTmdb(rawItems)
+            let cards = await enrichWithTmdb(rawItems)
+            // Post-filter: hard exclusion of library items LLM might have ignored
+            if (libraryTmdbIds && libraryTmdbIds.size > 0) {
+              cards = cards.filter((c) => !c.tmdbId || !libraryTmdbIds.has(c.tmdbId))
+            }
             controller.enqueue(encoder.encode(CARDS_MARKER + JSON.stringify(cards) + '\n'))
           } else {
             controller.enqueue(encoder.encode(CARDS_MARKER + '[]' + '\n'))

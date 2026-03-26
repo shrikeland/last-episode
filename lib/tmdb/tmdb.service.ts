@@ -68,6 +68,8 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
       poster_path: r.poster_path ?? null,
       release_year: extractYear(r.release_date ?? r.first_air_date),
       overview: r.overview ?? '',
+      vote_average: r.vote_average ?? null,
+      vote_count: r.vote_count ?? null,
     }))
 }
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { TasteProfileCard } from './TasteProfileCard'
 import { RecommendationQuestionnaire } from './RecommendationQuestionnaire'
@@ -146,17 +145,6 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
           onUpdate={handleUpdateProfile}
           isUpdating={isUpdatingProfile}
         />
-      )}
-
-      {/* Too few items blocker */}
-      {tooFewItems && phase === 'questionnaire' && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-muted-foreground">
-          <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-          <span>
-            Добавь хотя бы <strong className="text-foreground">5 тайтлов</strong> в библиотеку — тогда
-            получишь персонализированные рекомендации.
-          </span>
-        </div>
       )}
 
       {/* Questionnaire or results */}
