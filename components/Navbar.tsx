@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { createBrowserClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Film, PlusCircle, BarChart2, LogOut, Users, Sparkles } from 'lucide-react'
+import { Film, PlusCircle, BarChart2, LogOut, Users, Sparkles, Menu, X, User } from 'lucide-react'
 
 const NAV_LINKS = [
   { href: '/library', label: 'Библиотека', icon: Film },
@@ -24,6 +25,7 @@ export function Navbar({ username }: NavbarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createBrowserClient()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   async function handleSignOut() {
     const { error } = await supabase.auth.signOut()
@@ -51,7 +53,7 @@ export function Navbar({ username }: NavbarProps) {
             LAST EPISODE
           </Link>
 
-          {/* Nav Links */}
+          {/* Desktop Nav Links */}
           <nav className="hidden md:flex items-center gap-1" data-testid="navbar-links">
             {NAV_LINKS.map(({ href, label, icon: Icon }) => (
               <Link
@@ -71,11 +73,12 @@ export function Navbar({ username }: NavbarProps) {
             ))}
           </nav>
 
-          {/* User Menu */}
+          {/* Right side */}
           <div className="flex items-center gap-3">
+            {/* Desktop: username + logout */}
             <Link
               href={`/profile/${username}`}
-              className="hidden sm:block text-sm text-muted-foreground truncate max-w-[160px] hover:text-foreground transition-colors"
+              className="hidden md:block text-sm text-muted-foreground truncate max-w-[160px] hover:text-foreground transition-colors"
               data-testid="navbar-username"
             >
               @{username}
@@ -84,15 +87,66 @@ export function Navbar({ username }: NavbarProps) {
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="gap-2 text-muted-foreground hover:text-foreground"
+              className="hidden md:flex gap-2 text-muted-foreground hover:text-foreground"
               data-testid="navbar-signout-button"
             >
               <LogOut className="h-4 w-4" />
-              <span className="hidden sm:block">Выйти</span>
+              <span>Выйти</span>
+            </Button>
+
+            {/* Mobile: hamburger */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-label="Меню"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-border bg-card/95 backdrop-blur-sm">
+          <nav className="container max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
+            {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors',
+                  pathname === href || pathname.startsWith(href + '/')
+                    ? 'bg-accent/10 text-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </Link>
+            ))}
+            <div className="my-1 border-t border-border" />
+            <Link
+              href={`/profile/${username}`}
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <User className="h-5 w-5" />
+              @{username}
+            </Link>
+            <button
+              onClick={() => { setMobileMenuOpen(false); handleSignOut() }}
+              className="flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors w-full text-left"
+            >
+              <LogOut className="h-5 w-5" />
+              Выйти
+            </button>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }
