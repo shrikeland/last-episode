@@ -2,6 +2,8 @@
 
 import { createServerClient } from '@/lib/supabase/server'
 import { createMediaItem } from '@/lib/supabase/media'
+import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
+import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
 import { getMovieDetails, getTVDetails, getBasicInfo, getCredits, buildPosterUrl } from '@/lib/tmdb/tmdb.service'
 import type { MediaType } from '@/types'
 import type { RecommendationDetails } from '@/types/recommendations'
@@ -68,6 +70,21 @@ export async function addRecommendedTitle(
 
     const result = await createMediaItem(supabase, user.id, details)
     if (result.error) return { error: result.error }
+
+    if ((type === 'tv' || type === 'anime') && details.seasons?.length && result.item) {
+      await createSeasonsAndEpisodes(supabase, result.item.id, details.seasons)
+
+      if (type === 'anime') {
+        void fetchAndApplyFillers(
+          result.item.id,
+          details.tmdb_id,
+          details.title,
+          details.original_title,
+          details.seasons
+        )
+      }
+    }
+
     return { success: true }
   } catch {
     return { error: 'tmdb' }

@@ -1,5 +1,5 @@
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
+const DEFAULT_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
 
 function getApiKey(): string {
   const key = process.env.GROQ_API_KEY
@@ -39,6 +39,9 @@ export async function generate(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await res.json()
+  if (data.usage) {
+    console.log(`[groq] ${model} | prompt=${data.usage.prompt_tokens} completion=${data.usage.completion_tokens} total=${data.usage.total_tokens}`)
+  }
   return data.choices?.[0]?.message?.content ?? ''
 }
 
@@ -59,7 +62,7 @@ export async function generateStream(
       Authorization: `Bearer ${getApiKey()}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model, messages, stream: true, temperature: 0.8 }),
+    body: JSON.stringify({ model, messages, stream: true, temperature: 0.8, stream_options: { include_usage: true } }),
   })
 
   if (!res.ok) {
@@ -68,6 +71,22 @@ export async function generateStream(
   }
 
   return res
+}
+
+/** Parse an SSE line and extract token usage (present in the final chunk when stream_options.include_usage=true) */
+export function parseSseUsage(line: string): { prompt: number; completion: number; total: number } | null {
+  if (!line.startsWith('data: ')) return null
+  const data = line.slice(6).trim()
+  if (data === '[DONE]') return null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parsed: any = JSON.parse(data)
+    const u = parsed.usage
+    if (!u) return null
+    return { prompt: u.prompt_tokens, completion: u.completion_tokens, total: u.total_tokens }
+  } catch {
+    return null
+  }
 }
 
 /** Parse an SSE line and extract the text content delta */

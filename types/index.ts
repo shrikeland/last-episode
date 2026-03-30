@@ -77,6 +77,7 @@ export interface TmdbSearchResult {
   overview: string
   vote_average?: number | null
   vote_count?: number | null
+  genre_ids?: number[]
 }
 
 export interface TmdbDetails extends TmdbSearchResult {
@@ -163,6 +164,11 @@ export type Database = {
         Row: { id: string; user_id: string; summary: string; updated_at: string }
         Insert: { user_id: string; summary: string; updated_at?: string }
         Update: { summary?: string; updated_at?: string }
+      }
+      recommendation_history: {
+        Row: { id: string; user_id: string; tmdb_id: number; title: string; created_at: string }
+        Insert: { user_id: string; tmdb_id: number; title: string; created_at?: string }
+        Update: never
       }
     }
   }

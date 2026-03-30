@@ -1,69 +1,102 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { getMediaItems } from '@/lib/supabase/media'
-import { generateStream, parseSseDelta } from '@/lib/groq/groq.service'
+import { generate, generateStream, parseSseDelta, parseSseUsage } from '@/lib/groq/groq.service'
 import { search, buildPosterUrl } from '@/lib/tmdb/tmdb.service'
-import type { RecommendationCardData, QuestionnaireAnswers } from '@/types/recommendations'
+import type { TmdbSearchResult } from '@/types'
+import type { RecommendationCardData, QuestionnaireAnswers, ContentType } from '@/types/recommendations'
 
 // Markers used to communicate phases to the client
 const INTRO_DONE_MARKER = '\n__INTRO_DONE__\n'
 const CARDS_MARKER = '\n__CARDS__:'
 
-const SYSTEM_PROMPT = `Ты — кинокуратор с безупречным вкусом. Подбирай рекомендации точно и персонально.
-Сначала напиши короткое вступление (2–3 предложения, обращайся на "ты"), затем — строго JSON-массив.
-Не пиши ничего после JSON-массива. Используй только типы: movie, animation, tv, anime. Тип animation — для анимационных полнометражных фильмов (например, Disney/Pixar/DreamWorks), не аниме.
-В поле "title" ВСЕГДА используй оригинальное название на языке оригинала (английский, японский романизированный и т.д.). НИКОГДА не добавляй год в поле title — год должен быть ТОЛЬКО в отдельном поле year. НИКОГДА не транслитерируй и не смешивай кириллицу с латиницей. Примеры правильно: {"title": "Inception", "year": 2010}. Примеры неправильно: {"title": "Inception 2010", "year": 2010}.
-СТРОГО ЗАПРЕЩЕНЫ следующие форматы контента — они НЕ являются фильмами/сериалами: концерты, live-выступления, stage performance, мюзикальные шоу, making-of, закулисные съёмки, fan events, фанатские встречи, idol events, компиляции, сборники, YouTube-видео, документальные концертные программы. Рекомендуй ИСКЛЮЧИТЕЛЬНО художественные фильмы, анимационные фильмы, сериалы или аниме-сериалы/фильмы.
-Строго соблюдай запрет на рекомендации тайтлов из библиотеки пользователя.
-Рекомендуй ТОЛЬКО признанные тайтлы с рейтингом IMDb ≥ 6.5 И не менее 1000 голосов на IMDb/TMDB. Никакого мусора, B-movie без культового статуса, прямых видеорелизов или малоизвестных проходных работ. Если подходящих качественных тайтлов мало — лучше предложи меньше, чем рекомендовать посредственность.
-Старайся разнообразить подборку: не предлагай одни и те же очевидные хиты из топ-10. Ищи достойные, но менее растиражированные работы режиссёров/студий, которые подойдут под профиль.`
+const SYSTEM_PROMPT = `Ты — кинокуратор. Предлагаешь пул кандидатов для рекомендации.
+
+Формат строго:
+1. Вступление — ровно 2 предложения, обращение на «ты»
+2. JSON-массив — сразу после вступления
+3. После JSON ничего не добавлять
+
+Каждый объект: {"title":string,"year":number,"type":"movie"|"animation"|"tv"|"anime","reason":string}
+
+Правила:
+- title: оригинальное название без года, без кириллицы в иноязычных тайтлах
+- Только художественный контент. Нельзя: концерты, making-of, fan events, спешлы, стэнд-апы, live-шоу, компиляции
+- Только тайтлы с рейтингом ≥ 6.5 и ≥ 1000 голосов
+- Если не уверен в соответствии типу или настроению — не включай
+- Во вступлении не упоминай количество подобранных вариантов`
+
+// Mood → excluded TMDB genre IDs (enforced server-side after enrichment)
+// Genre IDs: 28=Action, 35=Comedy, 27=Horror, 10749=Romance, 10402=Music,
+//   10752=War, 53=Thriller, 10751=Family, 10759=Action&Adventure(tv), 10768=War&Politics(tv)
+const MOOD_EXCLUDED_GENRE_IDS: Record<string, number[]> = {
+  'На расслабоне':             [27, 10752, 53],          // Horror, War, Thriller
+  'Режим суетолога':           [10749, 10402],            // Romance, Music
+  'Философ на смене':          [],
+  'Стеклянный человек':        [28, 10759, 27],           // Action, Action&Adventure, Horror
+  'Генератор хихи':            [27, 53, 10752, 10768],    // Horror, Thriller, War, War&Politics
+  'Проверю, закрыта ли дверь': [10751, 35, 10402],       // Family, Comedy, Music
+}
+
+// Mood → LLM-facing text hint (guides candidate generation)
+const MOOD_LLM_HINTS: Record<string, string> = {
+  'На расслабоне':             'Лёгкое, уютное, без напряга. Исключить ужасы, тяжёлые триллеры, войну.',
+  'Режим суетолога':           'Движ, экшн, темп, напряжение. Исключить мелодрамы и музыкальные фильмы.',
+  'Философ на смене':          'Умное, многослойное, глубокое. Приветствуются детективы, фантастика, арт-хаус.',
+  'Стеклянный человек':        'Эмоциональная драма, переживания. Исключить экшн и ужасы.',
+  'Генератор хихи':            'Комедия, смех, развлечение. Исключить ужасы, триллеры, войну.',
+  'Проверю, закрыта ли дверь': 'Жуть, напряжение, хоррор или психологический триллер. Исключить комедии и семейное.',
+}
+
+// User-selected exclusion tags → excluded TMDB genre IDs
+const EXCLUSION_GENRE_IDS: Record<string, number[]> = {
+  'Без насилия и жести':       [27, 53, 10752, 10768],   // Horror, Thriller, War, War&Politics
+  'Без романтических линий':   [10749],                   // Romance
+}
 
 function buildUserPrompt(
   summary: string,
   answers: QuestionnaireAnswers,
-  libraryContext: string
+  libraryContext: string,
+  recentTitles: string[]
 ): string {
   const exclusionsText =
-    answers.exclusions.length > 0 ? answers.exclusions.join(', ') : 'нет ограничений'
+    answers.exclusions.length > 0 ? answers.exclusions.join(', ') : 'нет'
 
-  // Strict content type constraints sent directly to LLM
-  const contentTypeConstraints: Record<string, string> = {
-    movie: 'СТРОГО только фильмы (type: "movie"). Аниме, сериалы и мультфильмы — ЗАПРЕЩЕНЫ.',
-    animation: 'СТРОГО только западные анимационные полнометражные фильмы (Disney, Pixar, DreamWorks, Blue Sky, Ghibli и подобные). Тип СТРОГО "animation". ЗАПРЕЩЕНЫ: японское аниме (для него type: "anime"), игровые фильмы, мультсериалы. Только признанные полнометражные мультфильмы НЕ японского производства.',
-    tv: 'СТРОГО только сериалы (type: "tv"). Фильмы и аниме — ЗАПРЕЩЕНЫ.',
-    anime: 'СТРОГО только аниме (type: "anime"). Фильмы и обычные сериалы — ЗАПРЕЩЕНЫ.',
-    any: 'Любой тип контента приветствуется.',
+  const contentTypeText: Record<string, string> = {
+    movie: 'только игровые фильмы (type: "movie"). Запрещены сериалы, аниме, мультфильмы.',
+    animation: 'только западная анимационная полнометражка (type: "animation"). Запрещены аниме, мультсериалы, игровые фильмы.',
+    tv: 'только сериалы (type: "tv"). Запрещены фильмы и аниме.',
+    anime: 'только аниме (type: "anime"). Запрещены обычные фильмы и сериалы.',
+    any: 'любой тип.',
   }
 
   const familiarityLabels: Record<string, string> = {
-    new_only: 'только новые тайтлы (не из моей библиотеки)',
-    include_planned: 'можно из запланированных и отложенных',
+    new_only: 'только тайтлы не из библиотеки',
+    include_planned: 'можно из запланированных/отложенных',
     include_rewatch: 'можно предложить пересмотреть любимое',
   }
 
-  // Inject a random seed phrase so the LLM doesn't give the same top-10 results every time
-  const diversityHints = [
-    'Сфокусируйся на менее очевидных, но ценных работах.',
-    'Избегай самых популярных хитов — ищи скрытые жемчужины.',
-    'Предпочти культовые, но недооценённые тайтлы.',
-    'Отдай приоритет авторскому кино и нестандартным работам.',
-    'Предложи разнообразный микс — разные страны, эпохи, стили.',
-  ]
-  const diversityHint = diversityHints[Math.floor(Math.random() * diversityHints.length)]
+  const moodKey = getMoodKey(answers.mood)
+  const moodHint = MOOD_LLM_HINTS[moodKey] ?? answers.mood
+
+  const antiRepeatSection = recentTitles.length > 0
+    ? `\nНедавно уже рекомендовались — не предлагай их повторно:\n${recentTitles.map((t) => `- ${t}`).join('\n')}\n`
+    : ''
 
   return `Профиль вкусов:
 ${summary}
 
 ${libraryContext}
-
-Сегодняшняя анкета:
-- Тип контента: ${contentTypeConstraints[answers.contentType] ?? answers.contentType}
-- Настроение: ${answers.mood}
+${antiRepeatSection}
+Анкета:
+- Тип контента: ${contentTypeText[answers.contentType] ?? answers.contentType}
+- Настроение: ${moodHint}
 - Исключения: ${exclusionsText}
 - Из чего выбирать: ${familiarityLabels[answers.familiarity] ?? answers.familiarity}
 
-Подбери топ-5 рекомендаций. ${diversityHint} Сначала вступление (2–3 предложения), потом строго в формате:
+Сначала вступление (2 предложения). Потом строго JSON-массив из 15 кандидатов (это пул для серверного отбора, не финальный список). Разнообразь: разные эпохи, страны, режиссёры. Не включай тайтл, если не уверен в соответствии типу.
 \`\`\`json
-[{"title": "Название", "year": 2023, "type": "movie|animation|tv|anime", "reason": "Почему подойдёт сегодня"}]
+[{"title": "Название", "year": 2023, "type": "movie|animation|tv|anime", "reason": "Почему подходит"}]
 \`\`\``
 }
 
@@ -72,59 +105,186 @@ function stripTrailingYear(title: string): string {
   return title.replace(/\s*\(?\d{4}\)?\s*$/, '').trim()
 }
 
-// Minimum quality bar: at least 200 votes on TMDB to filter out concerts/events/obscure content
-const MIN_VOTE_COUNT = 200
+const MIN_VOTE_COUNT = 1000
+const MIN_VOTE_AVERAGE = 6.5
+
+// --- Server-side filtering helpers ---
+
+function getMoodKey(mood: string): string {
+  for (const key of Object.keys(MOOD_EXCLUDED_GENRE_IDS)) {
+    if (mood.startsWith(key)) return key
+  }
+  return ''
+}
+
+function matchesRequestedType(contentType: ContentType, tmdbType: string): boolean {
+  if (contentType === 'any') return true
+  return tmdbType === contentType
+}
+
+function matchesMood(genreIds: number[], mood: string): boolean {
+  const key = getMoodKey(mood)
+  const excluded = MOOD_EXCLUDED_GENRE_IDS[key] ?? []
+  if (excluded.length === 0) return true
+  return !genreIds.some((id) => excluded.includes(id))
+}
+
+function matchesExclusions(genreIds: number[], exclusions: string[]): boolean {
+  for (const excl of exclusions) {
+    const excluded = EXCLUSION_GENRE_IDS[excl]
+    if (!excluded) continue
+    if (genreIds.some((id) => excluded.includes(id))) return false
+  }
+  return true
+}
+
+// Score-based best match selection (beats simple "first result" or "by year only")
+function pickBestSearchResult(
+  results: TmdbSearchResult[],
+  requestedTitle: string,
+  requestedYear: number | null
+): TmdbSearchResult | null {
+  if (results.length === 0) return null
+  const clean = requestedTitle.toLowerCase()
+
+  const scored = results.map((r) => {
+    let score = 0
+    const title = r.title.toLowerCase()
+    if (title === clean) score += 100
+    else if (title.includes(clean) || clean.includes(title)) score += 50
+    if (requestedYear && r.release_year === requestedYear) score += 40
+    else if (requestedYear && r.release_year && Math.abs(r.release_year - requestedYear) <= 1) score += 20
+    score += Math.min((r.vote_count ?? 0) / 1000, 10)
+    score += Math.min((r.vote_average ?? 0) * 2, 20)
+    return { r, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored[0]?.r ?? null
+}
+
+// Pick top 5 with decade spread to avoid temporal clustering
+function selectDiverseTop5(
+  candidates: RecommendationCardData[],
+  contentType: ContentType
+): RecommendationCardData[] {
+  if (candidates.length <= 5) return candidates
+
+  const selected: RecommendationCardData[] = []
+  const decadeCounts: Record<number, number> = {}
+  // When specific type is requested all items share that type — decade diversity is the main lever
+  const maxPerDecade = contentType === 'any' ? 2 : 3
+
+  for (const c of candidates) {
+    if (selected.length >= 5) break
+    const decade = c.year ? Math.floor(c.year / 10) : -1
+    const count = decadeCounts[decade] ?? 0
+    if (decade === -1 || count < maxPerDecade) {
+      selected.push(c)
+      decadeCounts[decade] = count + 1
+    }
+  }
+
+  // Fill remaining slots if strict diversity left gaps
+  if (selected.length < 5) {
+    for (const c of candidates) {
+      if (selected.length >= 5) break
+      if (!selected.includes(c)) selected.push(c)
+    }
+  }
+
+  return selected
+}
+
+function buildRetryUserPrompt(originalPrompt: string, triedTitles: string[]): string {
+  return `${originalPrompt}\n\nПервая попытка не дала достаточно подходящих результатов. Предложи 15 ДРУГИХ кандидатов. Не повторяй эти тайтлы:\n${triedTitles.map((t) => `- ${t}`).join('\n')}`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadRecentRecommendations(supabase: any, userId: string, days = 45) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await supabase
+    .from('recommendation_history')
+    .select('tmdb_id, title')
+    .eq('user_id', userId)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (!data || data.length === 0) return { ids: new Set<number>(), titles: [] as string[] }
+  return {
+    ids: new Set<number>(data.map((r: { tmdb_id: number }) => r.tmdb_id)),
+    titles: data.map((r: { title: string }) => r.title) as string[],
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveRecommendationHistory(supabase: any, userId: string, cards: RecommendationCardData[]) {
+  const rows = cards
+    .filter((c) => c.tmdbId !== null)
+    .map((c) => ({ user_id: userId, tmdb_id: c.tmdbId!, title: c.title }))
+  if (rows.length === 0) return
+  await supabase.from('recommendation_history').insert(rows)
+}
 
 async function enrichWithTmdb(
-  items: { title: string; year: number | null; type: string; reason: string }[]
+  items: { title: string; year: number | null; type: string; reason: string }[],
+  contentType: ContentType,
+  mood: string,
+  exclusions: string[],
+  recentTmdbIds: Set<number>
 ): Promise<RecommendationCardData[]> {
+  const seen = new Set<number>()
+
   const results = await Promise.all(
     items.map(async (item) => {
       try {
         const cleanTitle = stripTrailingYear(item.title)
-        // Try with year first for precision, then without for better recall
+
         let searchResults = item.year ? await search(`${cleanTitle} ${item.year}`) : []
-        if (searchResults.length === 0) {
-          searchResults = await search(cleanTitle)
-        }
+        if (searchResults.length === 0) searchResults = await search(cleanTitle)
 
-        // Filter: only consider results with enough votes (weeds out concerts, events, obscure content)
+        // Quality filter: only consider results meeting the quality bar
         const qualityResults = searchResults.filter(
-          (r) => r.vote_count == null || r.vote_count >= MIN_VOTE_COUNT
+          (r) =>
+            (r.vote_count ?? 0) >= MIN_VOTE_COUNT &&
+            (r.vote_average ?? 0) >= MIN_VOTE_AVERAGE
         )
-        // Prefer quality results; fall back to any result only if no quality match found
-        const candidates = qualityResults.length > 0 ? qualityResults : searchResults
+        if (qualityResults.length === 0) return null
 
-        // Pick best match: closest release year if year is known, otherwise first result
-        let match = candidates[0]
-        if (match && item.year && candidates.length > 1) {
-          const byYear = candidates.find((r) => r.release_year === item.year)
-          if (byYear) match = byYear
-        }
+        const match = pickBestSearchResult(qualityResults, cleanTitle, item.year)
+        if (!match) return null
 
-        // Reject if still no quality match at all
-        if (match && (match.vote_count ?? 0) < MIN_VOTE_COUNT) {
-          return null
-        }
+        // Deduplicate by TMDB ID within this batch
+        if (seen.has(match.tmdb_id)) return null
+        seen.add(match.tmdb_id)
 
-        // Use TMDB's normalized type when available — TMDB has actual genre+origin data
-        // and can correct LLM mistakes (e.g. anime classified as animation)
-        const resolvedType = match?.type ?? item.type
+        // Anti-repeat: skip recently recommended titles
+        if (recentTmdbIds.has(match.tmdb_id)) return null
+
+        // Strict content type filter (TMDB normalizeType is ground truth)
+        if (!matchesRequestedType(contentType, match.type)) return null
+
+        // Mood genre filter
+        if (!matchesMood(match.genre_ids ?? [], mood)) return null
+
+        // User exclusion filter
+        if (!matchesExclusions(match.genre_ids ?? [], exclusions)) return null
+
         return {
-          // Use TMDB title (ru-RU) when found — avoids English names from LLM
-          title: match?.title ?? cleanTitle,
-          year: item.year ?? match?.release_year ?? null,
-          type: resolvedType,
+          title: match.title ?? cleanTitle,
+          year: item.year ?? match.release_year ?? null,
+          type: match.type,
           reason: item.reason,
-          tmdbId: match?.tmdb_id ?? null,
-          posterUrl: match?.poster_path ? buildPosterUrl(match.poster_path) : null,
+          tmdbId: match.tmdb_id ?? null,
+          posterUrl: match.poster_path ? buildPosterUrl(match.poster_path) : null,
         }
       } catch {
-        return { title: item.title, year: item.year, type: item.type, reason: item.reason, tmdbId: null, posterUrl: null }
+        return null
       }
     })
   )
-  // Filter out null (rejected low-quality items)
+
   return results.filter((r): r is NonNullable<typeof r> => r !== null) as RecommendationCardData[]
 }
 
@@ -202,7 +362,11 @@ export async function POST(request: Request): Promise<Response> {
       ? new Set(items.map((i) => i.tmdb_id).filter(Boolean))
       : null
 
-    const userPrompt = buildUserPrompt(profileRow.summary, questionnaire, libraryContext)
+    // Load recommendation history for anti-repeat filtering
+    const { ids: recentTmdbIds, titles: recentTitles } =
+      await loadRecentRecommendations(supabase, user.id)
+
+    const userPrompt = buildUserPrompt(profileRow.summary, questionnaire, libraryContext, recentTitles)
 
     const groqResponse = await generateStream(SYSTEM_PROMPT, userPrompt)
     const groqReader = groqResponse.body!.getReader()
@@ -220,6 +384,7 @@ export async function POST(request: Request): Promise<Response> {
         let introAlreadySent = 0  // chars already flushed to client
         let jsonBuffer = ''
         let introSent = false
+        let usageLogged = false
 
         // Detect JSON start: either ```json marker or a raw JSON array on its own line (\n[)
         function detectJsonStart(text: string): { detectedAt: number; jsonContentStart: number } | null {
@@ -246,6 +411,13 @@ export async function POST(request: Request): Promise<Response> {
             sseBuffer = lines.pop() ?? ''
 
             for (const line of lines) {
+              if (!usageLogged) {
+                const usage = parseSseUsage(line)
+                if (usage) {
+                  console.log(`[groq/stream] prompt=${usage.prompt} completion=${usage.completion} total=${usage.total}`)
+                  usageLogged = true
+                }
+              }
               const content = parseSseDelta(line)
               if (!content) continue
 
@@ -294,20 +466,59 @@ export async function POST(request: Request): Promise<Response> {
           // Groq stream finished — parse JSON and enrich
           // Use bracket-counting instead of greedy regex to avoid capturing trailing
           // text that the LLM might add after the closing ] (e.g. "В списке [5 фильмов]")
+          type RawItem = { title: string; year: number | null; type: string; reason: string }
+
           const jsonArrayStr = extractJsonArray(jsonBuffer)
           if (jsonArrayStr) {
-            const rawItems = JSON.parse(jsonArrayStr) as {
-              title: string
-              year: number | null
-              type: string
-              reason: string
-            }[]
-            let cards = await enrichWithTmdb(rawItems)
-            // Post-filter: hard exclusion of library items LLM might have ignored
+            const rawItems = JSON.parse(jsonArrayStr) as RawItem[]
+
+            let cards = await enrichWithTmdb(
+              rawItems,
+              questionnaire.contentType,
+              questionnaire.mood,
+              questionnaire.exclusions,
+              recentTmdbIds
+            )
+            // Hard exclusion of library items LLM might have ignored
             if (libraryTmdbIds && libraryTmdbIds.size > 0) {
               cards = cards.filter((c) => !c.tmdbId || !libraryTmdbIds.has(c.tmdbId))
             }
+
+            // Retry pass: if filters left too few cards, ask LLM for another batch
+            if (cards.length < 3) {
+              try {
+                const retryText = await generate(
+                  SYSTEM_PROMPT,
+                  buildRetryUserPrompt(userPrompt, rawItems.map((i) => i.title))
+                )
+                const retryJsonStr = extractJsonArray(retryText)
+                if (retryJsonStr) {
+                  const retryItems = JSON.parse(retryJsonStr) as RawItem[]
+                  const moreCards = await enrichWithTmdb(
+                    retryItems,
+                    questionnaire.contentType,
+                    questionnaire.mood,
+                    questionnaire.exclusions,
+                    recentTmdbIds
+                  )
+                  const filteredMore = libraryTmdbIds?.size
+                    ? moreCards.filter((c) => !c.tmdbId || !libraryTmdbIds.has(c.tmdbId))
+                    : moreCards
+                  const seenIds = new Set(cards.map((c) => c.tmdbId).filter(Boolean))
+                  for (const c of filteredMore) {
+                    if (!c.tmdbId || !seenIds.has(c.tmdbId)) cards.push(c)
+                  }
+                }
+              } catch (retryErr) {
+                console.error('[recommendations/generate retry]', retryErr)
+              }
+            }
+
+            // Pick top 5 with decade-based diversity
+            cards = selectDiverseTop5(cards, questionnaire.contentType)
             controller.enqueue(encoder.encode(CARDS_MARKER + JSON.stringify(cards) + '\n'))
+            // Save to history (fire-and-forget — doesn't block the response)
+            void saveRecommendationHistory(supabase, user.id, cards)
           } else {
             controller.enqueue(encoder.encode(CARDS_MARKER + '[]' + '\n'))
           }

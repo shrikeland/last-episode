@@ -70,6 +70,7 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
       overview: r.overview ?? '',
       vote_average: r.vote_average ?? null,
       vote_count: r.vote_count ?? null,
+      genre_ids: r.genre_ids ?? [],
     }))
 }
 
