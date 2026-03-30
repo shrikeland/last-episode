@@ -7,6 +7,21 @@ import { computeStats } from '@/lib/stats'
 import type { EpisodeForStats } from '@/lib/stats'
 import type { Profile, MediaItem, MediaType } from '@/types'
 
+export async function getRecentUsers(limit = 5): Promise<Profile[]> {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) return []
+  return (data ?? []) as Profile[]
+}
+
 export async function searchUsers(query: string): Promise<Profile[]> {
   if (!query.trim()) return []
 

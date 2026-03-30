@@ -1,8 +1,11 @@
 import { UserSearchInput } from '@/components/community/UserSearchInput'
+import { getRecentUsers } from '@/app/actions/users'
 
 export const dynamic = 'force-dynamic'
 
-export default function CommunityPage() {
+export default async function CommunityPage() {
+  const recentUsers = await getRecentUsers(5)
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
       <div>
@@ -12,7 +15,7 @@ export default function CommunityPage() {
         </p>
       </div>
 
-      <UserSearchInput />
+      <UserSearchInput recentUsers={recentUsers} />
     </div>
   )
 }

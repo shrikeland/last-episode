@@ -7,7 +7,11 @@ import { UserCard } from '@/components/community/UserCard'
 import { searchUsers } from '@/app/actions/users'
 import type { Profile } from '@/types'
 
-export function UserSearchInput() {
+interface UserSearchInputProps {
+  recentUsers: Profile[]
+}
+
+export function UserSearchInput({ recentUsers }: UserSearchInputProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Profile[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -39,6 +43,8 @@ export function UserSearchInput() {
     }
   }, [query])
 
+  const showRecent = !query.trim()
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -55,13 +61,22 @@ export function UserSearchInput() {
         )}
       </div>
 
-      {searched && results.length === 0 && (
+      {showRecent && recentUsers.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide">Новые пользователи</p>
+          {recentUsers.map((profile) => (
+            <UserCard key={profile.id} profile={profile} />
+          ))}
+        </div>
+      )}
+
+      {!showRecent && searched && results.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-6">
           Пользователи не найдены
         </p>
       )}
 
-      {results.length > 0 && (
+      {!showRecent && results.length > 0 && (
         <div className="space-y-2">
           {results.map((profile) => (
             <UserCard key={profile.id} profile={profile} />
