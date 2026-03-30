@@ -10,6 +10,7 @@ interface Props {
   isStreamingIntro: boolean
   isLoadingCards: boolean
   cards: RecommendationCardData[]
+  libraryIds: Set<number>
   onReset: () => void
 }
 
@@ -18,6 +19,7 @@ export function RecommendationResults({
   isStreamingIntro,
   isLoadingCards,
   cards,
+  libraryIds,
   onReset,
 }: Props) {
   const showIntro = introText.length > 0
@@ -66,7 +68,11 @@ export function RecommendationResults({
       {showCards && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {cards.map((card, idx) => (
-            <RecommendationCard key={`${card.title}-${idx}`} {...card} />
+            <RecommendationCard
+              key={`${card.title}-${idx}`}
+              {...card}
+              initialAdded={card.tmdbId ? libraryIds.has(card.tmdbId) : false}
+            />
           ))}
         </div>
       )}

@@ -31,8 +31,8 @@ function normalizeType(type: string): MediaType {
   return 'movie'
 }
 
-export function RecommendationCard({ title, year, type, reason, tmdbId, posterUrl }: RecommendationCardData) {
-  const [added, setAdded] = useState(false)
+export function RecommendationCard({ title, year, type, reason, tmdbId, posterUrl, initialAdded = false }: RecommendationCardData & { initialAdded?: boolean }) {
+  const [added, setAdded] = useState(initialAdded)
   const [isPending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -45,7 +45,6 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
     startTransition(async () => {
       const result = await addRecommendedTitle(tmdbId, mediaType)
       if (result.error === 'already_exists') {
-        toast.info('Уже в библиотеке')
         setAdded(true)
       } else if (result.error) {
         toast.error('Не удалось добавить')

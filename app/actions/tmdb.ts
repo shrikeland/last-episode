@@ -7,6 +7,21 @@ import { createServerClient } from '@/lib/supabase/server'
 import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
 import type { TmdbSearchResult, MediaType } from '@/types'
 
+export async function getLibraryTmdbIds(tmdbIds: number[]): Promise<number[]> {
+  if (!tmdbIds.length) return []
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('media_items')
+    .select('tmdb_id')
+    .eq('user_id', user.id)
+    .in('tmdb_id', tmdbIds)
+
+  return (data ?? []).map((row) => row.tmdb_id as number)
+}
+
 export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
   try {
     return await TmdbService.search(query)

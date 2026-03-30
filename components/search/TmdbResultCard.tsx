@@ -18,10 +18,11 @@ const ERROR_MESSAGES = {
 
 interface TmdbResultCardProps {
   result: TmdbSearchResult
+  initialAdded?: boolean
 }
 
-export function TmdbResultCard({ result }: TmdbResultCardProps) {
-  const [state, setState] = useState<'idle' | 'loading' | 'added'>('idle')
+export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardProps) {
+  const [state, setState] = useState<'idle' | 'loading' | 'added'>(initialAdded ? 'added' : 'idle')
 
   async function handleAdd() {
     setState('loading')
@@ -29,6 +30,8 @@ export function TmdbResultCard({ result }: TmdbResultCardProps) {
     if (res.success) {
       setState('added')
       toast.success(`«${result.title}» добавлен в коллекцию`)
+    } else if (res.error === 'already_exists') {
+      setState('added')
     } else {
       setState('idle')
       toast.error(ERROR_MESSAGES[res.error ?? 'db_error'])

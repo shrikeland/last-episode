@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from '@/components/ui/accordion'
+import * as AccordionPrimitive from '@radix-ui/react-accordion'
 import { Button } from '@/components/ui/button'
 import { EpisodeRow } from './EpisodeRow'
 import { toggleEpisode, markSeason, markAllTitle } from '@/app/actions/progress'
@@ -159,28 +159,24 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
               value={season.id}
               className="border border-border/50 rounded-lg px-4"
             >
-              <AccordionTrigger className="hover:no-underline py-3">
-                <div className="flex items-center justify-between w-full pr-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium">{season.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {watchedCount}/{totalCount} эп.
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`h-7 text-xs transition-colors ${allWatched ? 'border-orange-500 text-orange-500 hover:border-orange-400 hover:text-orange-400' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleMarkSeason(season)
-                    }}
-                    data-testid={`mark-season-button-${season.id}`}
-                  >
-                    {allWatched ? 'Снять отметку' : 'Отметить всё'}
-                  </Button>
-                </div>
-              </AccordionTrigger>
+              <div className="flex items-center justify-between py-3">
+                <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 hover:no-underline text-left [&[data-state=open]>svg]:rotate-180">
+                  <span className="text-sm font-medium">{season.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {watchedCount}/{totalCount} эп.
+                  </span>
+                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 transition-transform duration-200" />
+                </AccordionPrimitive.Trigger>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`ml-2 h-7 text-xs transition-colors ${allWatched ? 'border-orange-500 text-orange-500 hover:border-orange-400 hover:text-orange-400' : ''}`}
+                  onClick={() => handleMarkSeason(season)}
+                  data-testid={`mark-season-button-${season.id}`}
+                >
+                  {allWatched ? 'Снять отметку' : 'Отметить всё'}
+                </Button>
+              </div>
               <AccordionContent className="pb-3">
                 <div className="space-y-0.5">
                   {episodes.map((ep) => (

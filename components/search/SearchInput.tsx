@@ -3,13 +3,14 @@
 import { useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Search, Loader2 } from 'lucide-react'
-import { searchTmdb } from '@/app/actions/tmdb'
+import { searchTmdb, getLibraryTmdbIds } from '@/app/actions/tmdb'
 import { TmdbResultCard } from './TmdbResultCard'
 import type { TmdbSearchResult } from '@/types'
 
 export function SearchInput() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbSearchResult[]>([])
+  const [libraryIds, setLibraryIds] = useState<Set<number>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -20,6 +21,7 @@ export function SearchInput() {
 
     if (!value.trim()) {
       setResults([])
+      setLibraryIds(new Set())
       setSearched(false)
       return
     }
@@ -28,6 +30,8 @@ export function SearchInput() {
       setIsLoading(true)
       try {
         const data = await searchTmdb(value)
+        const ids = await getLibraryTmdbIds(data.map((r) => r.tmdb_id))
+        setLibraryIds(new Set(ids))
         setResults(data)
         setSearched(true)
       } finally {
@@ -65,7 +69,11 @@ export function SearchInput() {
       {results.length > 0 && (
         <div className="space-y-2">
           {results.map((result) => (
-            <TmdbResultCard key={result.tmdb_id} result={result} />
+            <TmdbResultCard
+              key={result.tmdb_id}
+              result={result}
+              initialAdded={libraryIds.has(result.tmdb_id)}
+            />
           ))}
         </div>
       )}
