@@ -22,6 +22,7 @@ npm run lint      # eslint check
 - Supabase client: `lib/supabase/` — server.ts for Server Components, client.ts for Client Components
 - Environment variables: never hardcode keys, always use `.env.local`
 - `@supabase/supabase-js` version must stay at **^2.x** (SSR package not compatible with v3 yet)
+- `framer-motion` must stay at **11.14.4** and `motion-dom` at **11.14.3** (11.15+–11.18.x have broken ES builds that fail Turbopack — see `plans/patches/framer-motion-turbopack-broken-es-build.md`)
 
 ## Code Style
 - TypeScript strict mode — no `any` unless explicitly justified

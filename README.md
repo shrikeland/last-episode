@@ -24,7 +24,7 @@ Personal media tracker for movies, animated films, TV series, and anime. Add tit
 | UI | Tailwind CSS + shadcn/ui + Framer Motion |
 | Auth & DB | Supabase (PostgreSQL + Auth + RLS) |
 | External API | TMDB API |
-| AI | Groq API (llama-3.3-70b-versatile, streaming) |
+| AI | Groq API (llama-4-scout-17b-16e-instruct, streaming) |
 | Deploy | Vercel + Supabase Cloud |
 
 ---

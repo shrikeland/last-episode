@@ -137,6 +137,7 @@ See `plans/patches/shadcn-accordion-trigger-button-nesting.md`.
 
 ## Constraints & Known Limitations
 - `@supabase/supabase-js` pinned at `2.46.2` (no `^`) — caret range allowed npm to pull a breaking minor; `@supabase/ssr` incompatible with v3. See `plans/patches/supabase-version-lock.md`.
+- `framer-motion` pinned at `11.14.4`, `motion-dom` at `11.14.3` (no `^`) — versions 11.15+–11.18.x published with incomplete ES builds; Turbopack fails with `Module not found` on missing internal `.mjs` files. See `plans/patches/framer-motion-turbopack-broken-es-build.md`.
 - Playwright not yet added — integration tests are manual for now
 - No light theme (dark only by design)
 - TMDB `runtime` for episodes falls back to `episode_run_time[0]` when per-episode data missing

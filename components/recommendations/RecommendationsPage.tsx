@@ -155,7 +155,7 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
 
       {/* Questionnaire or results */}
       {phase === 'questionnaire' && (
-        <div className="rounded-lg border border-border bg-card p-5 space-y-5">
+        <>
           <div>
             <p className="text-sm font-semibold">Настрой рекомендации</p>
             {!hasProfile && !tooFewItems && (
@@ -169,7 +169,7 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
             isLoading={false}
             disabled={questionnaireDisabled}
           />
-        </div>
+        </>
       )}
 
       {(phase === 'streaming' || phase === 'results') && (
