@@ -1,6 +1,6 @@
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getMediaItems } from '@/lib/supabase/media'
 import { computeStats } from '@/lib/stats'
@@ -8,9 +8,10 @@ import type { EpisodeForStats } from '@/lib/stats'
 import type { Profile, MediaItem, MediaType } from '@/types'
 
 export async function getRecentUsers(limit = 5): Promise<Profile[]> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data, error } = await supabase
     .from('profiles')
@@ -25,9 +26,10 @@ export async function getRecentUsers(limit = 5): Promise<Profile[]> {
 export async function searchUsers(query: string): Promise<Profile[]> {
   if (!query.trim()) return []
 
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data, error } = await supabase
     .from('profiles')
@@ -44,9 +46,10 @@ export async function getUserProfile(username: string): Promise<{
   mediaItems: MediaItem[]
   stats: Awaited<ReturnType<typeof computeStats>>
 } | null> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return null
+
+  const supabase = await createServerClient()
 
   // Получаем профиль (доступен всем авторизованным через RLS)
   const { data: profile, error: profileError } = await supabase

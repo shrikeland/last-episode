@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { AppDock } from '@/components/AppDock'
 import { getPendingCount } from '@/app/actions/friends'
@@ -10,15 +10,13 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getServerUser()
 
   if (!user) {
     redirect('/login')
   }
 
+  const supabase = await createServerClient()
   const [profileResult, pendingCount] = await Promise.all([
     supabase.from('profiles').select('username').eq('id', user.id).single(),
     getPendingCount(),

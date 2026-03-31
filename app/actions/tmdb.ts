@@ -3,15 +3,16 @@
 import * as TmdbService from '@/lib/tmdb/tmdb.service'
 import * as MediaService from '@/lib/supabase/media'
 import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
 import type { TmdbSearchResult, MediaType } from '@/types'
 
 export async function getLibraryTmdbIds(tmdbIds: number[]): Promise<number[]> {
   if (!tmdbIds.length) return []
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data } = await supabase
     .from('media_items')
@@ -34,9 +35,10 @@ export async function addMediaItem(
   tmdbId: number,
   type: MediaType
 ): Promise<{ success: boolean; error?: 'already_exists' | 'tmdb_error' | 'db_error' }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { success: false, error: 'db_error' }
+
+  const supabase = await createServerClient()
 
   let details
   try {

@@ -1,15 +1,15 @@
 import { CommunityContent } from '@/components/community/CommunityContent'
 import { getRecentUsers } from '@/app/actions/users'
 import { getMyFriends, getPendingRequests, getPendingOutgoingIds } from '@/app/actions/friends'
-import { createServerClient } from '@/lib/supabase/server'
+import { getServerUser } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CommunityPage() {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const [recentUsers, friends, pendingRequests, pendingOutgoingIds] = await Promise.all([
+  // getServerUser() кэшируется через React.cache() — все 4 actions ниже
+  // используют ту же cached функцию → 1 auth запрос вместо 5
+  const [user, recentUsers, friends, pendingRequests, pendingOutgoingIds] = await Promise.all([
+    getServerUser(),
     getRecentUsers(5),
     getMyFriends(),
     getPendingRequests(),

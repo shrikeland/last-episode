@@ -61,7 +61,7 @@ export function RecommendationDetailDialog({ tmdbId, type, reason, open, onOpenC
             <DialogHeader>
               <DialogTitle className="pr-6 leading-snug">
                 {details.title}
-                {details.year && (
+                {details.year != null && (
                   <span className="ml-2 text-base font-normal text-muted-foreground">
                     ({details.year})
                   </span>

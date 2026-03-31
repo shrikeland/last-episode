@@ -47,7 +47,7 @@ export function ProfileMediaCard({ item }: ProfileMediaCardProps) {
           </span>
         </div>
 
-        {item.release_year && (
+        {item.release_year != null && (
           <p className="text-xs text-muted-foreground">{item.release_year}</p>
         )}
       </div>

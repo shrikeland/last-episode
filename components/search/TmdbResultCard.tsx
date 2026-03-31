@@ -74,7 +74,7 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
           <Badge variant="secondary" className="text-xs px-1.5 py-0">
             {MEDIA_TYPE_LABELS[result.type]}
           </Badge>
-          {result.release_year && (
+          {result.release_year != null && (
             <span className="text-xs text-muted-foreground">{result.release_year}</span>
           )}
         </div>

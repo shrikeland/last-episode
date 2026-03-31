@@ -1,4 +1,4 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItems } from '@/lib/supabase/media'
 import { computeStats } from '@/lib/stats'
 import type { EpisodeForStats } from '@/lib/stats'
@@ -10,11 +10,10 @@ import type { MediaType } from '@/types'
 export const dynamic = 'force-dynamic'
 
 export default async function StatsPage() {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return null
+
+  const supabase = await createServerClient()
 
   const mediaItems = await getMediaItems(supabase, user.id)
 

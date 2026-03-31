@@ -90,7 +90,7 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
           </div>
 
           {/* Hover overlay */}
-          {tmdbId && (
+          {tmdbId != null && (
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <span className="text-white text-xs font-medium px-2 py-1 rounded bg-black/30">
                 Подробнее
@@ -104,7 +104,7 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
           <p className="text-sm font-semibold leading-tight line-clamp-2">{title}</p>
           <p className="text-xs text-muted-foreground text-right mt-auto mb-1.5">{year ?? ''}</p>
 
-          {tmdbId && (
+          {tmdbId != null && (
             <Button
               data-testid="recommendation-add-button"
               variant={added ? 'secondary' : 'outline'}
@@ -129,7 +129,7 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
         </div>
       </div>
 
-      {tmdbId && (
+      {tmdbId != null && (
         <RecommendationDetailDialog
           tmdbId={tmdbId}
           type={type}

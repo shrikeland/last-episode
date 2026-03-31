@@ -1,6 +1,7 @@
 import { createServerClient as _createServerClient } from '@supabase/ssr'
 import type { CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 import type { Database } from '@/types'
 
 // Server client — для Server Components и Server Actions
@@ -28,3 +29,16 @@ export async function createServerClient() {
     }
   )
 }
+
+/**
+ * Возвращает текущего авторизованного пользователя.
+ * React.cache() гарантирует один auth вызов на весь render-дерево запроса
+ * (layout + page + все server actions в пределах одного рендера).
+ */
+export const getServerUser = cache(async () => {
+  const supabase = await createServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  return user
+})

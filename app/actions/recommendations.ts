@@ -1,6 +1,6 @@
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { createMediaItem } from '@/lib/supabase/media'
 import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
 import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
@@ -58,9 +58,10 @@ export async function addRecommendedTitle(
   tmdbId: number,
   type: MediaType
 ): Promise<{ success?: boolean; error?: 'already_exists' | 'auth' | 'tmdb' | 'db_error' }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'auth' }
+
+  const supabase = await createServerClient()
 
   try {
     const details =

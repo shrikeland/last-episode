@@ -1,14 +1,15 @@
 'use server'
 
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import type { Profile } from '@/types'
 
 type FriendshipRow = { id: string; user_id: string; friend_id: string; status: string }
 
 export async function getMyFriends(): Promise<Profile[]> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data, error } = await supabase
     .from('friendships')
@@ -36,9 +37,10 @@ export async function getMyFriends(): Promise<Profile[]> {
 
 /** Incoming pending requests (other user sent to me) */
 export async function getPendingRequests(): Promise<{ requestId: string; profile: Profile }[]> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data, error } = await supabase
     .from('friendships')
@@ -67,9 +69,10 @@ export async function getPendingRequests(): Promise<{ requestId: string; profile
 
 /** IDs of users I've sent a pending request to */
 export async function getPendingOutgoingIds(): Promise<string[]> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return []
+
+  const supabase = await createServerClient()
 
   const { data, error } = await supabase
     .from('friendships')
@@ -83,9 +86,10 @@ export async function getPendingOutgoingIds(): Promise<string[]> {
 
 /** Count of incoming pending requests (for navbar badge) */
 export async function getPendingCount(): Promise<number> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return 0
+
+  const supabase = await createServerClient()
 
   const { count, error } = await supabase
     .from('friendships')
@@ -98,9 +102,10 @@ export async function getPendingCount(): Promise<number> {
 }
 
 export async function sendFriendRequest(friendId: string): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createServerClient()
 
   const { error } = await supabase
     .from('friendships')
@@ -111,9 +116,10 @@ export async function sendFriendRequest(friendId: string): Promise<{ error?: str
 }
 
 export async function acceptFriendRequest(requestId: string): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createServerClient()
 
   const { error } = await supabase
     .from('friendships')
@@ -127,9 +133,10 @@ export async function acceptFriendRequest(requestId: string): Promise<{ error?: 
 
 /** Decline incoming request or cancel outgoing request */
 export async function declineFriendRequest(requestId: string): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createServerClient()
 
   const { error } = await supabase
     .from('friendships')
@@ -142,9 +149,10 @@ export async function declineFriendRequest(requestId: string): Promise<{ error?:
 
 /** Cancel outgoing pending request by target user ID */
 export async function cancelFriendRequest(friendId: string): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createServerClient()
 
   const { error } = await supabase
     .from('friendships')
@@ -159,9 +167,10 @@ export async function cancelFriendRequest(friendId: string): Promise<{ error?: s
 
 /** Remove an accepted friend (either direction) */
 export async function removeFriend(friendId: string): Promise<{ error?: string }> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return { error: 'Unauthorized' }
+
+  const supabase = await createServerClient()
 
   const { error } = await supabase
     .from('friendships')

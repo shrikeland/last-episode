@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItemById } from '@/lib/supabase/media'
 import { getSeasonsWithEpisodes } from '@/lib/supabase/progress'
 import { Badge } from '@/components/ui/badge'
@@ -19,9 +19,10 @@ interface PageProps {
 
 export default async function MediaDetailPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return null
+
+  const supabase = await createServerClient()
 
   const item = await getMediaItemById(supabase, id, user.id)
   if (!item) notFound()
@@ -53,7 +54,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
               <h1 className="text-2xl font-bold tracking-tight">{item.title}</h1>
               <Badge variant="secondary">{MEDIA_TYPE_LABELS[item.type]}</Badge>
             </div>
-            {(item.original_title || item.release_year) && (
+            {(item.original_title || item.release_year != null) && (
               <p className="text-sm text-muted-foreground">
                 {item.original_title}
                 {item.original_title && item.release_year ? ' · ' : ''}

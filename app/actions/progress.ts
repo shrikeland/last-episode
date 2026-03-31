@@ -2,7 +2,7 @@
 
 import * as ProgressService from '@/lib/supabase/progress'
 import * as MediaService from '@/lib/supabase/media'
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import type { MediaStatus, MediaType } from '@/types'
 
 export async function toggleEpisode(
@@ -38,9 +38,10 @@ export async function updateStatus(
   status: MediaStatus,
   mediaType: MediaType
 ): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return
+
+  const supabase = await createServerClient()
 
   await MediaService.updateMediaItem(supabase, mediaItemId, user.id, { status })
 
@@ -53,9 +54,10 @@ export async function updateRating(
   mediaItemId: string,
   rating: number | null
 ): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return
+
+  const supabase = await createServerClient()
 
   await MediaService.updateMediaItem(supabase, mediaItemId, user.id, { rating })
 }
@@ -64,9 +66,10 @@ export async function updateNotes(
   mediaItemId: string,
   notes: string | null
 ): Promise<void> {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return
+
+  const supabase = await createServerClient()
 
   await MediaService.updateMediaItem(supabase, mediaItemId, user.id, { notes })
 }

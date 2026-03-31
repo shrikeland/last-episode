@@ -1,13 +1,14 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { RecommendationsPage } from '@/components/recommendations/RecommendationsPage'
 import type { TasteProfile } from '@/types/recommendations'
 
 export const dynamic = 'force-dynamic'
 
 export default async function RecommendationsRoute() {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getServerUser()
   if (!user) return null
+
+  const supabase = await createServerClient()
 
   // Count media items
   const { count } = await supabase
