@@ -50,22 +50,22 @@ export async function getSeasonsWithEpisodes(
 
   if (seasonsError || !seasons) return []
 
-  const result: SeasonWithEpisodes[] = []
+  const typedSeasons = seasons as Season[]
 
-  for (const season of seasons as Season[]) {
-    const { data: episodes, error: episodesError } = await client
-      .from('episodes')
-      .select('*')
-      .eq('season_id', season.id)
-      .order('episode_number', { ascending: true })
+  const episodeResults = await Promise.all(
+    typedSeasons.map((season) =>
+      client
+        .from('episodes')
+        .select('*')
+        .eq('season_id', season.id)
+        .order('episode_number', { ascending: true })
+    )
+  )
 
-    result.push({
-      ...season,
-      episodes: episodesError ? [] : (episodes as Episode[]),
-    })
-  }
-
-  return result
+  return typedSeasons.map((season, i) => ({
+    ...season,
+    episodes: episodeResults[i].error ? [] : (episodeResults[i].data as Episode[]),
+  }))
 }
 
 export async function toggleEpisodeWatched(
