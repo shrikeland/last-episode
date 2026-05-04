@@ -3,14 +3,7 @@ import { Film } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS } from '@/types'
 import type { MediaItem } from '@/types'
-
-const STATUS_COLORS: Record<string, string> = {
-  watching: 'text-status-watching',
-  completed: 'text-status-completed',
-  planned: 'text-status-planned',
-  dropped: 'text-status-dropped',
-  on_hold: 'text-status-on-hold',
-}
+import { STATUS_COLORS } from '@/lib/constants'
 
 interface ProfileMediaCardProps {
   item: MediaItem
