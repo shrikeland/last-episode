@@ -24,41 +24,31 @@ export default async function StatsPage() {
   let watchedEpisodes: EpisodeForStats[] = []
 
   if (tvAnimeIds.length > 0) {
+    type SeasonWithEpisodes = {
+      media_item_id: string
+      episodes: { runtime_minutes: number | null; is_watched: boolean }[]
+    }
+
     const { data: seasons } = await supabase
       .from('seasons')
-      .select('id, media_item_id')
+      .select('media_item_id, episodes(runtime_minutes, is_watched)')
       .in('media_item_id', tvAnimeIds)
 
     if (seasons && seasons.length > 0) {
-      const seasonIds = (seasons as { id: string; media_item_id: string }[]).map(
-        (s) => s.id
-      )
       const mediaItemTypeMap = new Map<string, MediaType>(
         mediaItems.map((i) => [i.id, i.type])
       )
-      const seasonToMediaItem = new Map<string, string>(
-        (seasons as { id: string; media_item_id: string }[]).map((s) => [
-          s.id,
-          s.media_item_id,
-        ])
-      )
 
-      const { data: episodes } = await supabase
-        .from('episodes')
-        .select('runtime_minutes, season_id')
-        .eq('is_watched', true)
-        .in('season_id', seasonIds)
-
-      if (episodes) {
-        watchedEpisodes = (
-          episodes as { runtime_minutes: number | null; season_id: string }[]
-        ).map((ep) => ({
-          runtime_minutes: ep.runtime_minutes,
-          media_type:
-            mediaItemTypeMap.get(
-              seasonToMediaItem.get(ep.season_id) ?? ''
-            ) ?? 'tv',
-        }))
+      for (const season of seasons as SeasonWithEpisodes[]) {
+        const mediaType = mediaItemTypeMap.get(season.media_item_id) ?? 'tv'
+        for (const ep of season.episodes) {
+          if (ep.is_watched) {
+            watchedEpisodes.push({
+              runtime_minutes: ep.runtime_minutes,
+              media_type: mediaType,
+            })
+          }
+        }
       }
     }
   }
