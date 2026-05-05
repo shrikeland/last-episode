@@ -37,7 +37,7 @@ export async function generate(
     throw new Error(`Groq API error ${res.status}: ${body}`)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const data: any = await res.json()
   if (data.usage) {
     console.log(`[groq] ${model} | prompt=${data.usage.prompt_tokens} completion=${data.usage.completion_tokens} total=${data.usage.total_tokens}`)
@@ -79,7 +79,7 @@ export function parseSseUsage(line: string): { prompt: number; completion: numbe
   const data = line.slice(6).trim()
   if (data === '[DONE]') return null
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const parsed: any = JSON.parse(data)
     const u = parsed.usage
     if (!u) return null
@@ -95,7 +95,7 @@ export function parseSseDelta(line: string): string {
   const data = line.slice(6).trim()
   if (data === '[DONE]') return ''
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const parsed: any = JSON.parse(data)
     return parsed.choices?.[0]?.delta?.content ?? ''
   } catch {

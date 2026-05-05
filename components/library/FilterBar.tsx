@@ -42,6 +42,7 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
   useEffect(() => {
     const incoming = currentFilters.search ?? ''
     if (incoming !== lastSentRef.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearch(incoming)
       lastSentRef.current = incoming
     }
@@ -66,7 +67,6 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
   // Debounce поиска — пропускаем первый рендер
   useEffect(() => {
     if (!mountedRef.current) return
-    if (search.trim()) setIsDebouncing(true)
     const timer = setTimeout(() => {
       lastSentRef.current = search
       setIsDebouncing(false)
@@ -91,7 +91,11 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
         <Input
           placeholder="Поиск по названию..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value
+            setSearch(val)
+            if (val.trim()) setIsDebouncing(true)
+          }}
           className="pl-9"
         />
       </div>

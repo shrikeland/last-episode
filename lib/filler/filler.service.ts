@@ -99,7 +99,7 @@ export async function fetchAndApplyFillers(
  * Uses absolute episode numbering to match Jikan's flat episode sequence.
  */
 async function applyFillersToDB(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   supabaseAdmin: any,
   mediaItemId: string,
   tmdbId: number,

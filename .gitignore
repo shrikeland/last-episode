@@ -1,3 +1,18 @@
+# agent skills (installed via npx skills add — not committed)
+.agents/
+
+# claude worktrees (temporary agent workspaces)
+.claude/worktrees/
+
+# ide
+.junie/
+.windsurf/
+
+# screenshots / local assets
+*.png
+*.jpg
+*.jpeg
+
 # deps
 /node_modules
 /.pnp

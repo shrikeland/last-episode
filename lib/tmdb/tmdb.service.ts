@@ -38,7 +38,7 @@ export function normalizeType(
   return 'tv'
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function extractYear(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null
   const year = parseInt(dateStr.slice(0, 4), 10)
@@ -53,10 +53,10 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
 
   if (!res.ok) throw new Error(`TMDB search failed: ${res.status}`)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const data: any = await res.json()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return (data.results as any[])
     .filter((r) => r.media_type === 'movie' || r.media_type === 'tv')
     .slice(0, 20)
@@ -79,7 +79,7 @@ export async function getMovieDetails(tmdbId: number, type: 'movie' | 'animation
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`TMDB movie details failed: ${res.status}`)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const r: any = await res.json()
 
   // Auto-detect animation type by genre 16 if not explicitly provided
@@ -122,14 +122,14 @@ export async function getCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Pro
   const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) return { director: null, cast: [] }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const data: any = await res.json()
   const director =
     mediaType === 'movie'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       ? ((data.crew as any[]) ?? []).find((c) => c.job === 'Director')?.name ?? null
       : null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const cast = ((data.cast as any[]) ?? []).slice(0, 6).map((c) => c.name as string)
   return { director, cast }
 }
@@ -138,7 +138,7 @@ export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): P
   const url = buildUrl(`/${mediaType}/${tmdbId}`)
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`TMDB ${mediaType} basic info failed: ${res.status}`)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const r: any = await res.json()
   if (mediaType === 'movie') {
     return {
@@ -153,7 +153,7 @@ export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): P
       seasonCount: null,
     }
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const seasonCount = ((r.seasons ?? []) as any[]).filter((s) => s.season_number > 0).length
     return {
       title: r.name ?? '',
@@ -176,7 +176,7 @@ export async function getTVDetails(tmdbId: number, type: MediaType): Promise<Tmd
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`TMDB tv details failed: ${res.status}`)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const r: any = await res.json()
 
   const regularSeasons = ((r.seasons ?? []) as RawSeason[]).filter(s => s.season_number !== 0)
@@ -193,7 +193,7 @@ export async function getTVDetails(tmdbId: number, type: MediaType): Promise<Tmd
     const epRes = responses[i]
     if (!epRes.ok) continue
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const epData: any = await epRes.json()
     const episodes: TmdbEpisode[] = (epData.episodes ?? []).map(
       (e: { id: number; episode_number: number; name: string; runtime: number | null }) => ({

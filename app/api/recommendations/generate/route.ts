@@ -200,7 +200,7 @@ function buildRetryUserPrompt(originalPrompt: string, triedTitles: string[]): st
   return `${originalPrompt}\n\nПервая попытка не дала достаточно подходящих результатов. Предложи 15 ДРУГИХ кандидатов. Не повторяй эти тайтлы:\n${triedTitles.map((t) => `- ${t}`).join('\n')}`
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function loadRecentRecommendations(supabase: any, userId: string, days = 45) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
   const { data } = await supabase
@@ -218,7 +218,7 @@ async function loadRecentRecommendations(supabase: any, userId: string, days = 4
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 async function saveRecommendationHistory(supabase: any, userId: string, cards: RecommendationCardData[]) {
   const rows = cards
     .filter((c) => c.tmdbId !== null)
