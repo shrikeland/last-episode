@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "pi-planning-with-files": {
+      "source": "othmanadi/planning-with-files",
+      "sourceType": "github",
+      "computedHash": "01d7523f089cfbdbf1ecb6ecc7e7a4c3c292337035520a5362f3a4cf7bb0329b"
+    },
+    "planning-with-files": {
+      "source": "othmanadi/planning-with-files",
+      "sourceType": "github",
+      "computedHash": "594e6e55f82793c309cd02f94a9a5fe73326d4b8694cbfda2b484ab410e81e88"
+    },
+    "planning-with-files-zh": {
+      "source": "othmanadi/planning-with-files",
+      "sourceType": "github",
+      "computedHash": "77926257f923edebfe968770b2f7eab85d01df805cb7b5b2a7991663f700eb8a"
+    },
+    "planning-with-files-zht": {
+      "source": "othmanadi/planning-with-files",
+      "sourceType": "github",
+      "computedHash": "dc3ef56b9659753d46f0896b8ad24f0173777dd730991e5cb60b952a616f60f5"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "b1142c5e1bc7b77e8479db09dbabf671f44e1f2d4d9d3eed8cc20cc2c90aeb20"
+    }
+  }
+}

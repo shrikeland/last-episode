@@ -5,7 +5,7 @@ Analyse all patch files in `plans/patches/` and suggest improvements to project 
 ## What to do
 
 1. Read all files in `plans/patches/` (skip `_template.md`)
-2. Read `AGENTS.md` and `ARCHITECTURE.md`
+2. Read `CLAUDE.md` and `ARCHITECTURE.md`
 
 3. For each patch, extract:
    - Recurring patterns (same area, same type of mistake)
@@ -20,7 +20,7 @@ Analyse all patch files in `plans/patches/` and suggest improvements to project 
 ### Recurring patterns
 - ...
 
-### Suggested rule additions (AGENTS.md)
+### Suggested rule additions (CLAUDE.md → Hard Rules)
 | Rule | Trigger | Based on patch |
 |------|---------|---------------|
 | ... | ... | ... |

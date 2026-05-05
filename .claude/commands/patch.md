@@ -35,7 +35,7 @@ What to remember / check in the future to avoid repeating this.
 Any constraints that follow from this.
 ```
 
-3. After creating the file, check if `ARCHITECTURE.md` or `AGENTS.md` should be updated
+3. After creating the file, check if `ARCHITECTURE.md` or `CLAUDE.md` should be updated
    (e.g., a new hard rule, a new constraint, a version lock to document).
    If yes — update the relevant section.
 
