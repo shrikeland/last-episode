@@ -71,7 +71,12 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
         return
       }
 
-      const reader = res.body!.getReader()
+      if (!res.body) {
+        toast.error('Сервер не вернул данные')
+        setPhase('questionnaire')
+        return
+      }
+      const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let accumulated = ''
       let introDone = false
