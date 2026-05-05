@@ -169,6 +169,8 @@ export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): P
   }
 }
 
+type RawSeason = { season_number: number; id: number; name: string; episode_count: number }
+
 export async function getTVDetails(tmdbId: number, type: MediaType): Promise<TmdbDetails> {
   const url = buildUrl(`/tv/${tmdbId}`)
   const res = await fetch(url, { next: { revalidate: 0 } })
@@ -177,12 +179,18 @@ export async function getTVDetails(tmdbId: number, type: MediaType): Promise<Tmd
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r: any = await res.json()
 
-  const seasons: TmdbSeason[] = []
-  for (const s of (r.seasons ?? []) as { season_number: number; id: number; name: string; episode_count: number }[]) {
-    if (s.season_number === 0) continue // пропускаем "Specials"
+  const regularSeasons = ((r.seasons ?? []) as RawSeason[]).filter(s => s.season_number !== 0)
 
-    const episodesUrl = buildUrl(`/tv/${tmdbId}/season/${s.season_number}`)
-    const epRes = await fetch(episodesUrl, { next: { revalidate: 0 } })
+  const responses = await Promise.all(
+    regularSeasons.map(s =>
+      fetch(buildUrl(`/tv/${tmdbId}/season/${s.season_number}`), { next: { revalidate: 0 } })
+    )
+  )
+
+  const seasons: TmdbSeason[] = []
+  for (let i = 0; i < regularSeasons.length; i++) {
+    const s = regularSeasons[i]
+    const epRes = responses[i]
     if (!epRes.ok) continue
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
