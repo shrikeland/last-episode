@@ -16,7 +16,7 @@ export async function createSeasonsAndEpisodes(
         tmdb_season_id: season.tmdb_season_id,
         season_number: season.season_number,
         name: season.name,
-        episode_count: season.episodes.length,
+        episode_count: season.episode_count,
       })
       .select('id')
       .single()
@@ -125,6 +125,42 @@ export async function markAllEpisodesWatched(
     .in('season_id', seasonIds)
 
   if (error) throw error
+}
+
+export async function hasPlannedSeasons(
+  client: Client,
+  mediaItemId: string
+): Promise<boolean> {
+  const { data: seasons, error: seasonsError } = await client
+    .from('seasons')
+    .select('id, episode_count')
+    .eq('media_item_id', mediaItemId)
+
+  if (seasonsError) throw seasonsError
+  if (!seasons || seasons.length === 0) return false
+
+  const seasonRows = seasons as { id: string; episode_count: number }[]
+  if (seasonRows.some((season) => season.episode_count > 0) === false) {
+    return seasonRows.some((season) => season.episode_count === 0)
+  }
+
+  const seasonIds = seasonRows.map((season) => season.id)
+  const { data: episodeCounts, error: episodesError } = await client
+    .from('episodes')
+    .select('season_id')
+    .in('season_id', seasonIds)
+
+  if (episodesError) throw episodesError
+
+  const createdBySeason = new Map<string, number>()
+  for (const episode of (episodeCounts ?? []) as { season_id: string }[]) {
+    createdBySeason.set(episode.season_id, (createdBySeason.get(episode.season_id) ?? 0) + 1)
+  }
+
+  return seasonRows.some((season) => {
+    const createdCount = createdBySeason.get(season.id) ?? 0
+    return createdCount === 0 || season.episode_count > createdCount
+  })
 }
 
 export async function markAllEpisodesUnwatched(

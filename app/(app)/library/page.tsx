@@ -33,7 +33,7 @@ export default async function LibraryPage({
   }
 
   const sort: SortOptions = {
-    field: (params.sort as SortField) || 'created_at',
+    field: (params.sort as SortField) || 'release_year',
     direction: (params.dir as SortDirection) || 'desc',
   }
 

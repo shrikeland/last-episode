@@ -5,6 +5,10 @@ import * as MediaService from '@/lib/supabase/media'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import type { MediaStatus, MediaType } from '@/types'
 
+type UpdateStatusResult =
+  | { success: true }
+  | { success: false; error: 'planned_seasons' }
+
 export async function toggleEpisode(
   episodeId: string,
   isWatched: boolean
@@ -37,17 +41,26 @@ export async function updateStatus(
   mediaItemId: string,
   status: MediaStatus,
   mediaType: MediaType
-): Promise<void> {
+): Promise<UpdateStatusResult> {
   const user = await getServerUser()
-  if (!user) return
+  if (!user) return { success: true }
 
   const supabase = await createServerClient()
+
+  if (status === 'completed' && mediaType !== 'movie') {
+    const hasPlanned = await ProgressService.hasPlannedSeasons(supabase, mediaItemId)
+    if (hasPlanned) {
+      return { success: false, error: 'planned_seasons' }
+    }
+  }
 
   await MediaService.updateMediaItem(supabase, mediaItemId, user.id, { status })
 
   if (status === 'completed' && mediaType !== 'movie') {
     await ProgressService.markAllEpisodesWatched(supabase, mediaItemId)
   }
+
+  return { success: true }
 }
 
 export async function updateRating(

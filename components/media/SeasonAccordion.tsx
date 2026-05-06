@@ -175,7 +175,7 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
                   onClick={() => handleMarkSeason(season)}
                   data-testid={`mark-season-button-${season.id}`}
                 >
-                  {allWatched ? 'Снять отметку' : 'Отметить всё'}
+                  {allWatched ? 'Снять отметку' : 'Отметить сезон'}
                 </Button>
               </div>
               <AccordionContent className="pb-3">

@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
-import { Search, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Search, Loader2, X } from 'lucide-react'
 import { searchTmdb, getLibraryTmdbIds } from '@/app/actions/tmdb'
 import { TmdbResultCard } from './TmdbResultCard'
 import type { TmdbSearchResult } from '@/types'
@@ -14,6 +15,7 @@ export function SearchInput() {
   const [isLoading, setIsLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestIdRef = useRef(0)
 
   const handleChange = (value: string) => {
     setQuery(value)
@@ -23,22 +25,44 @@ export function SearchInput() {
       setResults([])
       setLibraryIds(new Set())
       setSearched(false)
+      setIsLoading(false)
+      requestIdRef.current += 1
       return
     }
 
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
     timerRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
         const data = await searchTmdb(value)
         const ids = await getLibraryTmdbIds(data.map((r) => r.tmdb_id))
+        if (requestId !== requestIdRef.current) return
         setLibraryIds(new Set(ids))
         setResults(data)
         setSearched(true)
       } finally {
-        setIsLoading(false)
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false)
+        }
       }
     }, 400)
   }
+
+  const handleClear = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    requestIdRef.current += 1
+    setQuery('')
+    setResults([])
+    setLibraryIds(new Set())
+    setSearched(false)
+    setIsLoading(false)
+  }
+
+  const canClear = query.length > 0 || results.length > 0 || searched
 
   return (
     <div className="space-y-4">
@@ -54,10 +78,22 @@ export function SearchInput() {
           placeholder="Название фильма, сериала или аниме..."
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          className="pl-9 h-12 text-base"
+          className="pl-9 pr-11 h-12 text-base"
           autoFocus
           data-testid="search-input"
         />
+        {canClear && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Очистить поиск"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {searched && results.length === 0 && !isLoading && (

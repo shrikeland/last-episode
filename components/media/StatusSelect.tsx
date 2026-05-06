@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import {
   Select,
   SelectContent,
@@ -32,9 +33,19 @@ export function StatusSelect({ mediaItemId, currentStatus, mediaType }: StatusSe
 
   function handleChange(value: string) {
     const newStatus = value as MediaStatus
+    const previousStatus = status
     setStatus(newStatus)
     startTransition(async () => {
-      await updateStatus(mediaItemId, newStatus, mediaType)
+      try {
+        const result = await updateStatus(mediaItemId, newStatus, mediaType)
+        if (!result.success && result.error === 'planned_seasons') {
+          setStatus((current) => current === newStatus ? previousStatus : current)
+          toast.error('Нельзя отметить просмотренным: есть запланированные сезоны')
+        }
+      } catch {
+        setStatus((current) => current === newStatus ? previousStatus : current)
+        toast.error('Ошибка сохранения статуса')
+      }
     })
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Star } from 'lucide-react'
 import { updateRating } from '@/app/actions/progress'
 
 interface RatingInputProps {
@@ -9,20 +10,30 @@ interface RatingInputProps {
 }
 
 function StarIcon({ fill }: { fill: 'full' | 'half' | 'empty' }) {
+  const fillPercent = fill === 'full' ? '100%' : fill === 'half' ? '50%' : '0%'
+
   return (
-    <svg viewBox="0 0 20 20" className="w-5 h-5" aria-hidden="true">
-      <defs>
-        <linearGradient id={`half-${fill}`}>
-          <stop offset="50%" stopColor={fill === 'empty' ? 'transparent' : '#E67E22'} />
-          <stop offset="50%" stopColor="transparent" />
-        </linearGradient>
-      </defs>
-      {/* background star */}
-      <path
-        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-        fill={fill === 'full' ? '#E67E22' : fill === 'half' ? 'url(#half-half)' : '#2D3F55'}
+    <span className="relative block h-5 w-5" aria-hidden="true">
+      <Star
+        className="absolute inset-0 h-5 w-5 text-border"
+        strokeWidth={1.8}
+        fill="currentColor"
       />
-    </svg>
+      <span
+        className="absolute inset-0 overflow-hidden text-orange-500"
+        style={{ width: fillPercent }}
+      >
+        <Star
+          className="h-5 w-5"
+          strokeWidth={1.8}
+          fill="currentColor"
+        />
+      </span>
+      <Star
+        className="absolute inset-0 h-5 w-5 text-orange-500"
+        strokeWidth={1.8}
+      />
+    </span>
   )
 }
 
@@ -57,32 +68,25 @@ export function RatingInput({ mediaItemId, currentRating }: RatingInputProps) {
         onMouseLeave={() => setHoverRating(null)}
       >
         {Array.from({ length: 10 }, (_, i) => i).map((starIndex) => (
-          <div key={starIndex} className="flex">
-            {/* Left half = starIndex + 0.5 */}
+          <div
+            key={starIndex}
+            className="relative h-5 w-5 transition-transform hover:scale-110"
+          >
+            <StarIcon fill={getStarFill(starIndex, displayRating)} />
             <button
               type="button"
-              className="w-2.5 overflow-hidden hover:scale-110 transition-transform cursor-pointer"
+              className="absolute inset-y-0 left-0 w-1/2 cursor-pointer"
               onMouseEnter={() => setHoverRating(starIndex + 0.5)}
               onClick={() => handleClick(starIndex + 0.5)}
               aria-label={`Оценка ${starIndex + 0.5}`}
-            >
-              <div className="w-5">
-                <StarIcon fill={getStarFill(starIndex, displayRating)} />
-              </div>
-            </button>
-            {/* Right half = starIndex + 1.0 */}
+            />
             <button
               type="button"
-              className="w-2.5 overflow-hidden -ml-0 hover:scale-110 transition-transform cursor-pointer"
-              style={{ clipPath: 'inset(0 0 0 50%)' }}
+              className="absolute inset-y-0 right-0 w-1/2 cursor-pointer"
               onMouseEnter={() => setHoverRating(starIndex + 1)}
               onClick={() => handleClick(starIndex + 1)}
               aria-label={`Оценка ${starIndex + 1}`}
-            >
-              <div className="w-5 -ml-2.5">
-                <StarIcon fill={getStarFill(starIndex, displayRating)} />
-              </div>
-            </button>
+            />
           </div>
         ))}
       </div>

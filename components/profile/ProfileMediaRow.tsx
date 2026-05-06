@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProfileMediaCard } from './ProfileMediaCard'
 import type { MediaItem } from '@/types'
@@ -10,6 +11,8 @@ interface ProfileMediaRowProps {
 }
 
 export function ProfileMediaRow({ items }: ProfileMediaRowProps) {
+  const params = useParams<{ username: string }>()
+  const username = params.username
   const containerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -67,7 +70,7 @@ export function ProfileMediaRow({ items }: ProfileMediaRowProps) {
       >
         {items.map((item) => (
           <div key={item.id} className="flex-shrink-0 w-[140px] sm:w-[152px]">
-            <ProfileMediaCard item={item} />
+            <ProfileMediaCard item={item} username={username} />
           </div>
         ))}
       </div>

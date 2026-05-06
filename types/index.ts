@@ -7,6 +7,13 @@ export type MediaStatus =
   | 'dropped'
   | 'on_hold'
 
+export type MediaRating = number | null
+
+export interface CreateMediaItemOptions {
+  status?: MediaStatus
+  rating?: MediaRating
+}
+
 export const MEDIA_STATUS_LABELS: Record<MediaStatus, string> = {
   watching: 'Смотрю',
   completed: 'Просмотрено',
@@ -90,6 +97,7 @@ export interface TmdbSeason {
   tmdb_season_id: number
   season_number: number
   name: string
+  episode_count: number
   episodes: TmdbEpisode[]
 }
 
@@ -110,7 +118,7 @@ export interface MediaFilters {
   maxRating?: number
 }
 
-export type SortField = 'created_at' | 'title' | 'rating'
+export type SortField = 'release_year' | 'title' | 'rating'
 export type SortDirection = 'asc' | 'desc'
 
 export interface SortOptions {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Trash2, Film } from 'lucide-react'
+import { Trash2, Film, Star } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -115,8 +115,16 @@ export function MediaCard({ item }: MediaCardProps) {
           </span>
         </div>
 
-        {item.release_year != null && (
-          <p className="text-xs text-muted-foreground">{item.release_year}</p>
+        {(item.release_year != null || item.rating != null) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {item.release_year != null && <span>{item.release_year}</span>}
+            {item.rating != null && (
+              <span className="inline-flex items-center gap-1 text-[#F39C12]">
+                <Star className="h-3 w-3 fill-current" />
+                <span>{item.rating}/10</span>
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>

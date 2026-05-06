@@ -2,6 +2,7 @@ import type { MediaType, TmdbSearchResult, TmdbDetails, TmdbSeason, TmdbEpisode 
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const TMDB_PROFILE_IMAGE_BASE = 'https://image.tmdb.org/t/p/w185'
 const LANG = 'ru-RU'
 
 function getApiKey(): string {
@@ -23,6 +24,11 @@ function buildUrl(path: string, params: Record<string, string> = {}): string {
 export function buildPosterUrl(posterPath: string | null): string | null {
   if (!posterPath) return null
   return `${TMDB_IMAGE_BASE}${posterPath}`
+}
+
+export function buildProfileUrl(profilePath: string | null): string | null {
+  if (!profilePath) return null
+  return `${TMDB_PROFILE_IMAGE_BASE}${profilePath}`
 }
 
 export function normalizeType(
@@ -106,6 +112,32 @@ export interface TmdbCredits {
   cast: string[]
 }
 
+export interface TmdbCastMember {
+  id: number
+  name: string
+  character: string
+  profile_path: string | null
+  profile_url: string | null
+}
+
+type RawCastMember = {
+  id: number
+  name?: string | null
+  character?: string | null
+  profile_path?: string | null
+  order?: number | null
+}
+
+type RawCrewMember = {
+  job?: string | null
+  name?: string | null
+}
+
+type RawCredits = {
+  cast?: RawCastMember[]
+  crew?: RawCrewMember[]
+}
+
 export interface TmdbBasicInfo {
   title: string
   overview: string
@@ -123,15 +155,46 @@ export async function getCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Pro
   const res = await fetch(url, { next: { revalidate: 0 } })
   if (!res.ok) return { director: null, cast: [] }
    
-  const data: any = await res.json()
+  const data = (await res.json()) as RawCredits
   const director =
     mediaType === 'movie'
        
-      ? ((data.crew as any[]) ?? []).find((c) => c.job === 'Director')?.name ?? null
+      ? (data.crew ?? []).find((c) => c.job === 'Director')?.name ?? null
       : null
    
-  const cast = ((data.cast as any[]) ?? []).slice(0, 6).map((c) => c.name as string)
+  const cast = (data.cast ?? [])
+    .slice(0, 6)
+    .map((c) => c.name ?? '')
+    .filter(Boolean)
   return { director, cast }
+}
+
+export async function getTopCast(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv',
+  limit = 12
+): Promise<TmdbCastMember[]> {
+  try {
+    const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
+    const res = await fetch(url, { next: { revalidate: 0 } })
+    if (!res.ok) return []
+
+    const data = (await res.json()) as RawCredits
+    return (data.cast ?? [])
+      .slice()
+      .sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999))
+      .slice(0, limit)
+      .map((member) => ({
+        id: member.id,
+        name: member.name ?? '',
+        character: member.character ?? '',
+        profile_path: member.profile_path ?? null,
+        profile_url: buildProfileUrl(member.profile_path ?? null),
+      }))
+      .filter((member) => member.name.length > 0)
+  } catch {
+    return []
+  }
 }
 
 export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbBasicInfo> {
@@ -208,6 +271,7 @@ export async function getTVDetails(tmdbId: number, type: MediaType): Promise<Tmd
       tmdb_season_id: s.id,
       season_number: s.season_number,
       name: s.name ?? `Сезон ${s.season_number}`,
+      episode_count: s.episode_count,
       episodes,
     })
   }

@@ -9,6 +9,8 @@ import { StatusSelect } from '@/components/media/StatusSelect'
 import { RatingInput } from '@/components/media/RatingInput'
 import { NotesEditor } from '@/components/media/NotesEditor'
 import { SeasonAccordion } from '@/components/media/SeasonAccordion'
+import { CastList } from '@/components/media/CastList'
+import { getTopCast } from '@/lib/tmdb/tmdb.service'
 import { MEDIA_TYPE_LABELS } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -27,10 +29,13 @@ export default async function MediaDetailPage({ params }: PageProps) {
   const item = await getMediaItemById(supabase, id, user.id)
   if (!item) notFound()
 
-  const seasons =
+  const tmdbMediaType = item.type === 'movie' || item.type === 'animation' ? 'movie' : 'tv'
+  const [seasons, cast] = await Promise.all([
     (item.type !== 'movie' && item.type !== 'animation')
-      ? await getSeasonsWithEpisodes(supabase, id)
-      : []
+      ? getSeasonsWithEpisodes(supabase, id)
+      : Promise.resolve([]),
+    getTopCast(item.tmdb_id, tmdbMediaType),
+  ])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -91,6 +96,8 @@ export default async function MediaDetailPage({ params }: PageProps) {
               {item.overview}
             </p>
           )}
+
+          <CastList cast={cast} />
 
           {/* Notes */}
           <NotesEditor

@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, MediaItem, MediaFilters, SortOptions, TmdbDetails } from '@/types'
+import type {
+  CreateMediaItemOptions,
+  Database,
+  MediaItem,
+  MediaFilters,
+  SortOptions,
+  TmdbDetails,
+} from '@/types'
 
 type Client = SupabaseClient<Database>
 
@@ -34,7 +41,7 @@ export async function getMediaItems(
     query = query.lte('rating', filters.maxRating)
   }
 
-  const field = sort?.field ?? 'created_at'
+  const field = sort?.field ?? 'release_year'
   const ascending = sort?.direction === 'asc'
   query = query.order(field, { ascending })
 
@@ -62,7 +69,8 @@ export async function getMediaItemById(
 export async function createMediaItem(
   client: Client,
   userId: string,
-  details: TmdbDetails
+  details: TmdbDetails,
+  options?: CreateMediaItemOptions
 ): Promise<{ item?: MediaItem; error?: 'already_exists' | 'db_error' }> {
   const { data, error } = await client
     .from('media_items')
@@ -78,7 +86,8 @@ export async function createMediaItem(
         : null,
       release_year: details.release_year,
       genres: details.genres,
-      status: 'planned',
+      status: options?.status ?? 'planned',
+      rating: options?.rating ?? null,
       runtime_minutes: details.runtime_minutes,
     })
     .select()

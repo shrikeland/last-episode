@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { Film } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS } from '@/types'
@@ -7,11 +8,16 @@ import { STATUS_COLORS } from '@/lib/constants'
 
 interface ProfileMediaCardProps {
   item: MediaItem
+  username: string
 }
 
-export function ProfileMediaCard({ item }: ProfileMediaCardProps) {
+export function ProfileMediaCard({ item, username }: ProfileMediaCardProps) {
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <Link
+      href={`/profile/${encodeURIComponent(username)}/media/${item.id}`}
+      className="block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-orange-500/50 focus:outline-none focus:ring-2 focus:ring-orange-500/60"
+      aria-label={`Открыть ${item.title}`}
+    >
       <div className="relative aspect-[2/3] bg-secondary">
         {item.poster_url ? (
           <Image
@@ -44,6 +50,6 @@ export function ProfileMediaCard({ item }: ProfileMediaCardProps) {
           <p className="text-xs text-muted-foreground">{item.release_year}</p>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
