@@ -41,7 +41,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <BackButton />
 
-      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-8">
+      <div className="grid min-w-0 grid-cols-1 gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         {/* Left column — poster */}
         <div className="flex justify-center md:justify-start">
           <MediaPoster
@@ -52,7 +52,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
         </div>
 
         {/* Right column — details */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Title & meta */}
           <div className="space-y-2">
             <div className="flex items-start gap-3 flex-wrap">

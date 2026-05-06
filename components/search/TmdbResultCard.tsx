@@ -3,9 +3,17 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { Plus, Check, Film, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Check, Film, ChevronDown, ChevronUp, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -37,6 +45,7 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
   const [status, setStatus] = useState<MediaStatus>('planned')
   const [ratingValue, setRatingValue] = useState('none')
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   async function handleAdd() {
     setState('loading')
@@ -45,9 +54,11 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
     const res = await addMediaItem(result.tmdb_id, result.type, options)
     if (res.success) {
       setState('added')
+      setIsDialogOpen(false)
       toast.success(`«${result.title}» добавлен в коллекцию`)
     } else if (res.error === 'already_exists') {
       setState('added')
+      setIsDialogOpen(false)
     } else {
       setState('idle')
       toast.error(ERROR_MESSAGES[res.error ?? 'db_error'])
@@ -61,7 +72,7 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
 
   return (
     <div
-      className="flex flex-col gap-3 p-3 bg-card border border-border rounded-lg hover:border-border/80 transition-colors md:flex-row"
+      className="flex flex-col gap-3 p-3 bg-card border border-border rounded-lg hover:border-border/80 transition-colors sm:flex-row"
       data-testid={`tmdb-result-card-${result.tmdb_id}`}
     >
       <div className="flex min-w-0 flex-1 gap-3">
@@ -131,49 +142,13 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
         </div>
       </div>
 
-      {/* Параметры добавления */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 md:w-[390px] md:justify-end">
-        <Select
-          value={status}
-          onValueChange={(value) => setStatus(value as MediaStatus)}
-          disabled={state !== 'idle'}
-        >
-          <SelectTrigger className="h-9 w-[148px]" aria-label="Статус тайтла">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(MEDIA_STATUS_LABELS) as MediaStatus[]).map((itemStatus) => (
-              <SelectItem key={itemStatus} value={itemStatus}>
-                {MEDIA_STATUS_LABELS[itemStatus]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={ratingValue}
-          onValueChange={setRatingValue}
-          disabled={state !== 'idle'}
-        >
-          <SelectTrigger className="h-9 w-[120px]" aria-label="Оценка тайтла">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Без оценки</SelectItem>
-            {RATING_OPTIONS.map((rating) => (
-              <SelectItem key={rating} value={String(rating)}>
-                {rating}/10
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
+      <div className="flex shrink-0 items-start sm:w-[116px] sm:justify-end">
         <Button
           size="sm"
           variant={state === 'added' ? 'secondary' : 'default'}
-          onClick={handleAdd}
+          onClick={() => setIsDialogOpen(true)}
           disabled={state !== 'idle'}
-          className="gap-1.5"
+          className="w-full gap-1.5 sm:w-auto"
         >
           {state === 'loading' ? (
             'Добавляем...'
@@ -190,6 +165,117 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
           )}
         </Button>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Добавить в библиотеку</DialogTitle>
+            <DialogDescription className="line-clamp-2">
+              {result.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-3 rounded-lg border border-border/60 bg-card/60 p-3">
+            <div className="relative h-[84px] w-14 shrink-0 overflow-hidden rounded bg-secondary">
+              {posterUrl ? (
+                <Image
+                  src={posterUrl}
+                  alt={result.title}
+                  fill
+                  className="object-cover"
+                  sizes="56px"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Film className="h-5 w-5 text-muted-foreground/40" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="line-clamp-2 text-sm font-medium leading-tight">{result.title}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="px-1.5 py-0 text-xs">
+                  {MEDIA_TYPE_LABELS[result.type]}
+                </Badge>
+                {result.release_year != null && (
+                  <span className="text-xs text-muted-foreground">{result.release_year}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Статус
+              </label>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as MediaStatus)}
+                disabled={state !== 'idle'}
+              >
+                <SelectTrigger className="h-10" aria-label="Статус тайтла">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(MEDIA_STATUS_LABELS) as MediaStatus[]).map((itemStatus) => (
+                    <SelectItem key={itemStatus} value={itemStatus}>
+                      {MEDIA_STATUS_LABELS[itemStatus]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Оценка
+              </label>
+              <Select
+                value={ratingValue}
+                onValueChange={setRatingValue}
+                disabled={state !== 'idle'}
+              >
+                <SelectTrigger className="h-10" aria-label="Оценка тайтла">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Без оценки</SelectItem>
+                  {RATING_OPTIONS.map((rating) => (
+                    <SelectItem key={rating} value={String(rating)}>
+                      {rating}/10
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+            <Star className="h-3.5 w-3.5 shrink-0 text-[#F39C12]" />
+            Оценку можно оставить пустой и поставить позже в карточке тайтла.
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={state === 'loading'}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={state !== 'idle'}
+              className="gap-1.5"
+            >
+              {state === 'loading' ? 'Сохраняем...' : 'Сохранить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

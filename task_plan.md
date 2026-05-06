@@ -10,6 +10,7 @@
 - Phase 4: Integrate changes — complete
 - Phase 5: Verify build/lint — complete
 - Phase 6: Commit own changes only — complete
+- Phase 7: Fix cast/search layout regressions — complete
 
 ## Checklist
 - [x] Прочитать `CLAUDE.md` и проектные инструкции.
@@ -20,6 +21,9 @@
 - [x] Выполнить `npm run build`.
 - [x] Выполнить `npm run lint`.
 - [x] Создать commit только с изменениями по задаче.
+- [x] Исправить растягивание detail-страниц после добавления актерского состава.
+- [x] Перенести выбор статуса/оценки при добавлении тайтла из inline controls в dialog.
+- [x] Повторно выполнить `npm run lint` и `npm run build`.
 
 ## Risks / Open Questions
 - В git уже есть чужие staged deletion; не включать их в финальный commit.
@@ -32,3 +36,4 @@
 | zsh glob error for `app/(app)/library/page.tsx` | Read path without quotes | Re-read with quoted path |
 | Turbopack sandbox panic: `Operation not permitted` while binding to a port | `npm run build` inside sandbox | Re-ran `npm run build` with approved escalation; build passed |
 | Sandbox blocked `.git/index.lock` creation | `git add` in default sandbox | Re-ran scoped `git add` with approved escalation |
+| Turbopack sandbox panic repeated on follow-up build | `npm run build` inside sandbox | Re-ran `npm run build` with approved escalation; build passed |

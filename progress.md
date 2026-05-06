@@ -15,3 +15,10 @@
 - First `npm run build` failed in sandbox with Turbopack `Operation not permitted`; approved escalated rerun completed with exit 0.
 - `git diff --check` completed with exit 0.
 - Created commit `1f3a1f6 feat(library): improve title cards and search flow` on `main` using `git commit --only` scoped to task files.
+- Follow-up UX fixes:
+  - Converted `CastList` into a bounded client-side horizontal slider with arrows/fade overlays.
+  - Added `minmax(0, 1fr)` and `min-w-0` to personal/public detail page layouts to prevent viewport overflow.
+  - Replaced inline search add status/rating controls with a dialog opened from the fixed `Добавить` button.
+  - `npm run lint` completed with exit 0.
+  - `npm run build` failed in sandbox with Turbopack `Operation not permitted`; approved escalated rerun completed with exit 0.
+  - `git diff --check` completed with exit 0.

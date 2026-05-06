@@ -155,7 +155,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
         <span className="text-sm text-muted-foreground">Библиотека @{typedProfile.username}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-[240px_1fr]">
+      <div className="grid min-w-0 grid-cols-1 gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         <div className="flex justify-center md:justify-start">
           <MediaPoster
             posterUrl={item.poster_url}
@@ -164,7 +164,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <div className="space-y-2">
             <div className="flex flex-wrap items-start gap-3">
               <h1 className="text-2xl font-bold tracking-tight">{item.title}</h1>
