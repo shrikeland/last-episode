@@ -33,23 +33,123 @@ const ERROR_MESSAGES = {
   planned_seasons: 'Нельзя сразу отметить просмотренным: есть запланированные сезоны',
 }
 
-const RATING_OPTIONS = Array.from({ length: 20 }, (_, index) => (index + 1) / 2)
-
 interface TmdbResultCardProps {
   result: TmdbSearchResult
   initialAdded?: boolean
 }
 
+function RatingStar({ fill }: { fill: 'full' | 'half' | 'empty' }) {
+  const fillPercent = fill === 'full' ? '100%' : fill === 'half' ? '50%' : '0%'
+
+  return (
+    <span className="relative block h-5 w-5" aria-hidden="true">
+      <Star
+        className="absolute inset-0 h-5 w-5 text-border"
+        strokeWidth={1.8}
+        fill="currentColor"
+      />
+      <span
+        className="absolute inset-0 overflow-hidden text-[#F39C12]"
+        style={{ width: fillPercent }}
+      >
+        <Star
+          className="h-5 w-5"
+          strokeWidth={1.8}
+          fill="currentColor"
+        />
+      </span>
+      <Star
+        className="absolute inset-0 h-5 w-5 text-[#F39C12]"
+        strokeWidth={1.8}
+      />
+    </span>
+  )
+}
+
+function getRatingStarFill(starIndex: number, rating: number | null): 'full' | 'half' | 'empty' {
+  if (rating === null) return 'empty'
+  const full = Math.floor(rating)
+  const half = rating % 1 >= 0.5
+  if (starIndex < full) return 'full'
+  if (starIndex === full && half) return 'half'
+  return 'empty'
+}
+
+interface DialogRatingPickerProps {
+  rating: number | null
+  onChange: (rating: number | null) => void
+  disabled?: boolean
+}
+
+function DialogRatingPicker({ rating, onChange, disabled = false }: DialogRatingPickerProps) {
+  const [hoverRating, setHoverRating] = useState<number | null>(null)
+  const displayRating = hoverRating ?? rating
+
+  function handlePick(value: number) {
+    if (disabled) return
+    onChange(value === rating ? null : value)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-muted-foreground">Оценка</span>
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          disabled={disabled || rating === null}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          Сбросить
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-background/60 px-3 py-2">
+        <div
+          className="flex"
+          onMouseLeave={() => setHoverRating(null)}
+        >
+          {Array.from({ length: 10 }, (_, i) => i).map((starIndex) => (
+            <div
+              key={starIndex}
+              className="relative h-5 w-5 transition-transform hover:scale-110"
+            >
+              <RatingStar fill={getRatingStarFill(starIndex, displayRating)} />
+              <button
+                type="button"
+                className="absolute inset-y-0 left-0 w-1/2 cursor-pointer disabled:cursor-not-allowed"
+                onMouseEnter={() => !disabled && setHoverRating(starIndex + 0.5)}
+                onClick={() => handlePick(starIndex + 0.5)}
+                disabled={disabled}
+                aria-label={`Оценка ${starIndex + 0.5}`}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 w-1/2 cursor-pointer disabled:cursor-not-allowed"
+                onMouseEnter={() => !disabled && setHoverRating(starIndex + 1)}
+                onClick={() => handlePick(starIndex + 1)}
+                disabled={disabled}
+                aria-label={`Оценка ${starIndex + 1}`}
+              />
+            </div>
+          ))}
+        </div>
+        <span className="min-w-[58px] text-sm text-muted-foreground">
+          {displayRating !== null ? `${displayRating}/10` : '—'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'added'>(initialAdded ? 'added' : 'idle')
   const [status, setStatus] = useState<MediaStatus>('planned')
-  const [ratingValue, setRatingValue] = useState('none')
+  const [rating, setRating] = useState<number | null>(null)
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   async function handleAdd() {
     setState('loading')
-    const rating = ratingValue === 'none' ? null : Number(ratingValue)
     const options: CreateMediaItemOptions = { status, rating }
     const res = await addMediaItem(result.tmdb_id, result.type, options)
     if (res.success) {
@@ -204,7 +304,7 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
                 Статус
@@ -227,28 +327,11 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Оценка
-              </label>
-              <Select
-                value={ratingValue}
-                onValueChange={setRatingValue}
-                disabled={state !== 'idle'}
-              >
-                <SelectTrigger className="h-10" aria-label="Оценка тайтла">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Без оценки</SelectItem>
-                  {RATING_OPTIONS.map((rating) => (
-                    <SelectItem key={rating} value={String(rating)}>
-                      {rating}/10
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <DialogRatingPicker
+              rating={rating}
+              onChange={setRating}
+              disabled={state !== 'idle'}
+            />
           </div>
 
           <div className="flex items-center gap-2 rounded-md bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
