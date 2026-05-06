@@ -42,8 +42,12 @@ yarn-error.log*
 # ide
 .idea/
 
-# claude hooks (audio files)
+# claude hooks (audio)
 .claude/hooks/*.mp3
+
+# codex hooks (audio)
+.codex/hooks.json
+.codex/hooks/*.mp3
 
 # typescript
 *.tsbuildinfo
