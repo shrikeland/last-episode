@@ -14,7 +14,7 @@ export function MediaGrid({ items, hasFilters, progressMap }: MediaGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {items.map((item, i) => (
         <MediaCard key={item.id} item={item} index={i} progress={progressMap[item.id]} />
       ))}
