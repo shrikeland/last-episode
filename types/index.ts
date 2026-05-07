@@ -48,6 +48,11 @@ export interface MediaItem {
   updated_at: string
 }
 
+export interface EpisodeProgress {
+  watched: number
+  total: number
+}
+
 export interface Season {
   id: string
   media_item_id: string
