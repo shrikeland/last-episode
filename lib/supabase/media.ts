@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   CreateMediaItemOptions,
   Database,
+  EpisodeProgress,
   MediaItem,
   MediaFilters,
   SortOptions,
@@ -131,4 +132,51 @@ export async function deleteMediaItem(
     .eq('user_id', userId)
 
   if (error) throw error
+}
+
+export async function getEpisodeProgressMap(
+  client: Client,
+  itemIds: string[]
+): Promise<Record<string, EpisodeProgress>> {
+  if (itemIds.length === 0) return {}
+
+  const { data: seasons } = await client
+    .from('seasons')
+    .select('id, media_item_id, episode_count')
+    .in('media_item_id', itemIds)
+
+  if (!seasons || seasons.length === 0) return {}
+
+  const typedSeasons = seasons as { id: string; media_item_id: string; episode_count: number }[]
+  const seasonIds = typedSeasons.map((s) => s.id)
+
+  const totals: Record<string, number> = {}
+  const seasonToItem: Record<string, string> = {}
+  for (const s of typedSeasons) {
+    totals[s.media_item_id] = (totals[s.media_item_id] ?? 0) + s.episode_count
+    seasonToItem[s.id] = s.media_item_id
+  }
+
+  const { data: watchedEps } = await client
+    .from('episodes')
+    .select('season_id')
+    .in('season_id', seasonIds)
+    .eq('is_watched', true)
+
+  const watchedCounts: Record<string, number> = {}
+  for (const ep of ((watchedEps ?? []) as { season_id: string }[])) {
+    const itemId = seasonToItem[ep.season_id]
+    if (itemId) {
+      watchedCounts[itemId] = (watchedCounts[itemId] ?? 0) + 1
+    }
+  }
+
+  const result: Record<string, EpisodeProgress> = {}
+  for (const itemId of itemIds) {
+    const total = totals[itemId] ?? 0
+    if (total > 0) {
+      result[itemId] = { watched: watchedCounts[itemId] ?? 0, total }
+    }
+  }
+  return result
 }
