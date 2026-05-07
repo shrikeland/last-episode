@@ -13,6 +13,10 @@
 *.jpg
 *.jpeg
 
+# theme icons (tracked intentionally)
+!public/naruto-icon.png
+!public/sasuke-icon.png
+
 # deps
 /node_modules
 /.pnp
