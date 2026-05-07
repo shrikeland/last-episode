@@ -3,13 +3,14 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { MediaCard } from './MediaCard'
-import type { MediaItem } from '@/types'
+import type { MediaItem, EpisodeProgress } from '@/types'
 
 interface MediaRowProps {
   items: MediaItem[]
+  progressMap: Record<string, EpisodeProgress>
 }
 
-export function MediaRow({ items }: MediaRowProps) {
+export function MediaRow({ items, progressMap }: MediaRowProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -68,9 +69,9 @@ export function MediaRow({ items }: MediaRowProps) {
         ref={containerRef}
         className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
       >
-        {items.map((item) => (
+        {items.map((item, i) => (
           <div key={item.id} className="flex-shrink-0 w-[140px] sm:w-[152px]">
-            <MediaCard item={item} />
+            <MediaCard item={item} index={i} progress={progressMap[item.id]} />
           </div>
         ))}
       </div>

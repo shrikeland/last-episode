@@ -1,5 +1,5 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
-import { getMediaItems } from '@/lib/supabase/media'
+import { getMediaItems, getEpisodeProgressMap } from '@/lib/supabase/media'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
 import type { MediaFilters, SortOptions, MediaStatus, SortField, SortDirection } from '@/types'
@@ -39,16 +39,21 @@ export default async function LibraryPage({
 
   const items = await getMediaItems(supabase, user.id, filters, sort)
 
+  const nonMovieIds = items.filter((i) => i.type !== 'movie').map((i) => i.id)
+  const progressMap = await getEpisodeProgressMap(supabase, nonMovieIds)
+
   const hasFilters = !!(params.search || (params.status && params.status !== 'all'))
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Моя библиотека</h1>
-        <span className="text-sm text-muted-foreground">{items.length} тайтлов</span>
+      <div>
+        <div className="flex items-center gap-2.5 mb-1">
+          <h1 className="text-2xl font-bold tracking-tight">Библиотека</h1>
+        </div>
+        <p className="text-sm text-muted-foreground">{items.length} тайтлов в коллекции</p>
       </div>
       <FilterBar currentFilters={params} />
-      <LibrarySections items={items} hasFilters={hasFilters} />
+      <LibrarySections items={items} hasFilters={hasFilters} progressMap={progressMap} />
     </div>
   )
 }
