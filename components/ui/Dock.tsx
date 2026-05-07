@@ -28,6 +28,7 @@ export type DockProps = {
   dockHeight?: number
   magnification?: number
   spring?: SpringOptions
+  accent?: string
 }
 
 type DockItemProps = {
@@ -67,17 +68,19 @@ function DockItem({
   return (
     <motion.div
       ref={ref}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        background: isActive ? 'hsl(var(--primary) / 0.12)' : 'rgba(14,26,40,0.9)',
+        borderColor: isActive ? 'hsl(var(--primary) / 0.7)' : 'hsl(213 44% 20%)',
+        boxShadow: isActive ? '0 0 0 1px hsl(var(--primary) / 0.25), 0 0 18px hsl(var(--primary) / 0.2)' : 'none',
+      }}
       onHoverStart={() => isHovered.set(1)}
       onHoverEnd={() => isHovered.set(0)}
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
       onClick={onClick}
-      className={`relative inline-flex items-center justify-center rounded-full border-2 shadow-md cursor-pointer transition-colors ${
-        isActive
-          ? 'bg-primary/15 border-primary/60'
-          : 'bg-[#1E2A3A] border-[#2D3F55] hover:border-primary/40'
-      } ${className}`}
+      className={`relative inline-flex items-center justify-center rounded-full border cursor-pointer transition-colors ${className}`}
       tabIndex={0}
       role="button"
       aria-haspopup="false"
@@ -146,6 +149,7 @@ export default function Dock({
   panelHeight = 60,
   dockHeight = 240,
   baseItemSize = 46,
+  accent: _accent,
 }: DockProps) {
   const mouseX = useMotionValue(Infinity)
 
@@ -158,8 +162,14 @@ export default function Dock({
         onMouseLeave={() => {
           mouseX.set(Infinity)
         }}
-        className={`${className} flex items-end w-fit gap-3 rounded-2xl border border-[#2D3F55] bg-[#0D1117]/90 backdrop-blur-md pb-2 px-4`}
-        style={{ height: panelHeight }}
+        className={`${className} flex items-end w-fit gap-2 rounded-[24px] border pb-2 px-3`}
+        style={{
+          height: panelHeight,
+          background: 'rgba(13,26,40,0.88)',
+          backdropFilter: 'blur(24px)',
+          borderColor: 'hsl(213 44% 20%)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+        }}
         role="toolbar"
         aria-label="Навигация"
       >

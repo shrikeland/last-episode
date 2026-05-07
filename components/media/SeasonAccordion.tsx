@@ -139,7 +139,7 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
         <Button
           variant="outline"
           size="sm"
-          className={`h-7 text-xs transition-colors ${allTitleWatched ? 'border-orange-500 text-orange-500 hover:border-orange-400 hover:text-orange-400' : ''}`}
+          className={`h-7 text-xs transition-colors ${allTitleWatched ? 'border-primary text-primary hover:opacity-80' : ''}`}
           onClick={handleMarkAllTitle}
           data-testid="mark-all-title-button"
         >
@@ -171,7 +171,7 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`ml-2 h-7 text-xs transition-colors ${allWatched ? 'border-orange-500 text-orange-500 hover:border-orange-400 hover:text-orange-400' : ''}`}
+                  className={`ml-2 h-7 text-xs transition-colors ${allWatched ? 'border-primary text-primary hover:opacity-80' : ''}`}
                   onClick={() => handleMarkSeason(season)}
                   data-testid={`mark-season-button-${season.id}`}
                 >

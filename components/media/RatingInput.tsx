@@ -20,7 +20,7 @@ function StarIcon({ fill }: { fill: 'full' | 'half' | 'empty' }) {
         fill="currentColor"
       />
       <span
-        className="absolute inset-0 overflow-hidden text-orange-500"
+        className="absolute inset-0 overflow-hidden text-primary"
         style={{ width: fillPercent }}
       >
         <Star
@@ -30,7 +30,7 @@ function StarIcon({ fill }: { fill: 'full' | 'half' | 'empty' }) {
         />
       </span>
       <Star
-        className="absolute inset-0 h-5 w-5 text-orange-500"
+        className="absolute inset-0 h-5 w-5 text-primary"
         strokeWidth={1.8}
       />
     </span>

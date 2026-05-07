@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { Navbar } from '@/components/Navbar'
 import { AppDock } from '@/components/AppDock'
+import { ModeSwitcher } from '@/components/ModeSwitcher'
 import { getPendingCount } from '@/app/actions/friends'
-import ClickSpark from '@/components/ui/ClickSpark'
+import AppShell from '@/components/AppShell'
 
 export default async function AppLayout({
   children,
@@ -25,14 +26,16 @@ export default async function AppLayout({
   const username = profileResult.data?.username ?? user.email ?? ''
 
   return (
-    <ClickSpark>
-      <div className="flex min-h-screen flex-col">
+    <AppShell>
+      <div className="grain-overlay" />
+      <div className="flex min-h-screen flex-col relative z-10">
         <Navbar username={username} pendingRequestsCount={pendingCount} />
-        <main className="flex-1 container max-w-7xl mx-auto px-4 py-8 pb-28">
+        <main className="flex-1 max-w-[1100px] w-full mx-auto px-6 py-7 pb-28">
           {children}
         </main>
         <AppDock username={username} pendingRequestsCount={pendingCount} />
+        <ModeSwitcher />
       </div>
-    </ClickSpark>
+    </AppShell>
   )
 }

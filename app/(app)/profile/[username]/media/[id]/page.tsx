@@ -81,7 +81,7 @@ function ReadOnlyProgress({ seasons }: { seasons: SeasonWithEpisodes[] }) {
                     className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded px-1 py-1.5 text-sm"
                   >
                     {episode.is_watched ? (
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-orange-500" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                     ) : (
                       <Circle className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                     )}
@@ -147,7 +147,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Link
           href={`/profile/${encodeURIComponent(username)}`}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-orange-500/60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60"
         >
           <ArrowLeft className="h-4 w-4" />
           К профилю

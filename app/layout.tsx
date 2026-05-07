@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 import { Toaster } from 'sonner'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -16,18 +15,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className="dark" suppressHydrationWarning>
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} font-sans antialiased`}
-      >
-        {children}
+      <body className="antialiased">
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <Toaster
           theme="dark"
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'hsl(213 32% 17%)',
-              border: '1px solid hsl(213 31% 25%)',
-              color: 'hsl(210 33% 96%)',
+              background: 'hsl(213 50% 11%)',
+              border: '1px solid hsl(213 44% 16%)',
+              color: 'hsl(210 100% 93%)',
             },
           }}
         />

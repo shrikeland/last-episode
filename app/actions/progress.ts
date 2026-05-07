@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import * as ProgressService from '@/lib/supabase/progress'
 import * as MediaService from '@/lib/supabase/media'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
@@ -60,6 +61,7 @@ export async function updateStatus(
     await ProgressService.markAllEpisodesWatched(supabase, mediaItemId)
   }
 
+  revalidatePath('/library')
   return { success: true }
 }
 
@@ -73,6 +75,7 @@ export async function updateRating(
   const supabase = await createServerClient()
 
   await MediaService.updateMediaItem(supabase, mediaItemId, user.id, { rating })
+  revalidatePath('/library')
 }
 
 export async function updateNotes(

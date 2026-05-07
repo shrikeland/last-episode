@@ -1,57 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* Last Episode — "Naruto grown-up" dark cinematic seinen theme */
+  /* Last Episode — "Naruto grown-up" dark cinematic seinen */
   :root {
-    --background: 215 28% 7%;
-    --foreground: 210 33% 96%;
+    /* Deep navy base — darker than before */
+    --background: 215 55% 5%;
+    --foreground: 210 100% 93%;
 
-    --card: 213 32% 17%;
-    --card-foreground: 210 33% 96%;
+    --card: 213 50% 11%;
+    --card-foreground: 210 100% 93%;
 
-    --popover: 213 32% 17%;
-    --popover-foreground: 210 33% 96%;
+    --popover: 213 50% 11%;
+    --popover-foreground: 210 100% 93%;
 
-    --primary: 29 79% 52%;
+    /* Naruto accent — orange */
+    --primary: 27 79% 57%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 213 31% 22%;
-    --secondary-foreground: 210 33% 96%;
+    --secondary: 213 44% 14%;
+    --secondary-foreground: 210 100% 93%;
 
-    --muted: 213 32% 17%;
-    --muted-foreground: 210 14% 60%;
+    --muted: 213 50% 11%;
+    --muted-foreground: 210 25% 59%;
 
-    --accent: 29 79% 52%;
+    /* Naruto mode accent */
+    --accent: 27 79% 57%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 72% 64%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 213 31% 25%;
-    --input: 213 31% 25%;
-    --ring: 29 79% 52%;
+    --border: 213 44% 16%;
+    --input: 213 44% 16%;
+    --ring: 27 79% 57%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    /* Status colors */
-    --status-watching: 210 89% 60%;
-    --status-completed: 142 71% 45%;
+    /* Status colors — from design */
+    --status-watching: 211 100% 65%;
+    --status-completed: 144 65% 55%;
     --status-planned: 210 14% 60%;
-    --status-dropped: 0 72% 51%;
-    --status-on-hold: 38 89% 51%;
+    --status-dropped: 0 82% 64%;
+    --status-on-hold: 43 88% 61%;
   }
+}
+
+/* Sasuke palette override — outside @layer for max cascade priority */
+:root[data-sasuke="true"] {
+  --accent: 249 88% 70% !important;
+  --primary: 249 88% 70% !important;
+  --ring: 249 88% 70% !important;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-  body {
+  html, body {
     @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
   }
+}
+
+/* Film grain overlay */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
 }
 
 /* Hide scrollbar utility */
@@ -65,8 +92,8 @@
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: hsl(var(--background));
@@ -77,4 +104,22 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
+}
+
+/* Card entrance animation */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Tooltip slide-in */
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateX(-50%) scale(0.92); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* Menu pop-in */
+@keyframes menuIn {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
