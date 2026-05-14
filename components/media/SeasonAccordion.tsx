@@ -51,7 +51,14 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
   }, [seasons])
 
   const allEpisodes = Object.values(episodeMap)
-  const allTitleWatched = allEpisodes.length > 0 && allEpisodes.every((e) => e.is_watched)
+  const allSeasonsFullyCreated =
+    seasons.length > 0 &&
+    seasons.every((season) => {
+      const createdCount = season.episodes.filter((ep) => episodeMap[ep.id]).length
+      return season.episode_count > 0 && createdCount >= season.episode_count
+    })
+  const allTitleWatched =
+    allSeasonsFullyCreated && allEpisodes.length > 0 && allEpisodes.every((e) => e.is_watched)
 
   function handleToggleEpisode(episodeId: string, isWatched: boolean) {
     const previous = episodeMap[episodeId]

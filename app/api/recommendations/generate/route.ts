@@ -376,6 +376,7 @@ export async function POST(request: Request): Promise<Response> {
     const stream = new ReadableStream({
       async start(controller) {
         const JSON_MARKER = '```json'
+        const CODE_MARKER = '```'
         // Keep last 6 chars buffered: covers ```json (7 chars) and \n[ (2 chars) before they're sent
         const MARKER_SAFE_BUFFER = JSON_MARKER.length - 1
 
@@ -386,12 +387,24 @@ export async function POST(request: Request): Promise<Response> {
         let introSent = false
         let usageLogged = false
 
+        function cleanIntroText(text: string): string {
+          return text.replaceAll(JSON_MARKER, '').replaceAll(CODE_MARKER, '')
+        }
+
         // Detect JSON start: either ```json marker or a raw JSON array on its own line (\n[)
         function detectJsonStart(text: string): { detectedAt: number; jsonContentStart: number } | null {
           const codeIdx = text.indexOf(JSON_MARKER)
+          const genericCodeIdx = text.indexOf(CODE_MARKER)
           const rawIdx = text.search(/\n\s*\[/)
           if (codeIdx !== -1 && (rawIdx === -1 || codeIdx <= rawIdx)) {
             return { detectedAt: codeIdx, jsonContentStart: codeIdx + JSON_MARKER.length }
+          }
+          if (
+            genericCodeIdx !== -1 &&
+            genericCodeIdx !== codeIdx &&
+            (rawIdx === -1 || genericCodeIdx <= rawIdx)
+          ) {
+            return { detectedAt: genericCodeIdx, jsonContentStart: genericCodeIdx + CODE_MARKER.length }
           }
           if (rawIdx !== -1) {
             // Skip the leading \n, start json at [
@@ -426,7 +439,7 @@ export async function POST(request: Request): Promise<Response> {
                 const found = detectJsonStart(introAccumulated)
                 if (found) {
                   // Send only the unsent portion of intro before the marker
-                  const unsent = introAccumulated.slice(introAlreadySent, found.detectedAt).trimEnd()
+                  const unsent = cleanIntroText(introAccumulated.slice(introAlreadySent, found.detectedAt)).trimEnd()
                   if (unsent) controller.enqueue(encoder.encode(unsent))
                   controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
                   introSent = true
@@ -435,7 +448,8 @@ export async function POST(request: Request): Promise<Response> {
                   // Safe-buffer: keep last MARKER_SAFE_BUFFER chars to avoid partial-marker leaking
                   const safeEnd = Math.max(introAlreadySent, introAccumulated.length - MARKER_SAFE_BUFFER)
                   if (safeEnd > introAlreadySent) {
-                    controller.enqueue(encoder.encode(introAccumulated.slice(introAlreadySent, safeEnd)))
+                    const introChunk = cleanIntroText(introAccumulated.slice(introAlreadySent, safeEnd))
+                    if (introChunk) controller.enqueue(encoder.encode(introChunk))
                     introAlreadySent = safeEnd
                   }
                 }
@@ -449,13 +463,13 @@ export async function POST(request: Request): Promise<Response> {
           if (!introSent) {
             const found = detectJsonStart(introAccumulated)
             if (found) {
-              const unsent = introAccumulated.slice(introAlreadySent, found.detectedAt).trimEnd()
+              const unsent = cleanIntroText(introAccumulated.slice(introAlreadySent, found.detectedAt)).trimEnd()
               if (unsent) controller.enqueue(encoder.encode(unsent))
               controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
               jsonBuffer = introAccumulated.slice(found.jsonContentStart)
             } else {
               // No JSON at all — flush remaining intro and signal done with empty cards
-              const remaining = introAccumulated.slice(introAlreadySent).trim()
+              const remaining = cleanIntroText(introAccumulated.slice(introAlreadySent)).trim()
               if (remaining) controller.enqueue(encoder.encode(remaining))
               controller.enqueue(encoder.encode(INTRO_DONE_MARKER))
               controller.enqueue(encoder.encode(CARDS_MARKER + '[]' + '\n'))

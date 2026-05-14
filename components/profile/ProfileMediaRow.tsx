@@ -8,11 +8,13 @@ import type { MediaItem } from '@/types'
 
 interface ProfileMediaRowProps {
   items: MediaItem[]
+  initialAddedTmdbIds?: number[]
 }
 
-export function ProfileMediaRow({ items }: ProfileMediaRowProps) {
+export function ProfileMediaRow({ items, initialAddedTmdbIds = [] }: ProfileMediaRowProps) {
   const params = useParams<{ username: string }>()
   const username = params.username
+  const addedTmdbIds = new Set(initialAddedTmdbIds)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -70,7 +72,11 @@ export function ProfileMediaRow({ items }: ProfileMediaRowProps) {
       >
         {items.map((item) => (
           <div key={item.id} className="flex-shrink-0 w-[140px] sm:w-[152px]">
-            <ProfileMediaCard item={item} username={username} />
+            <ProfileMediaCard
+              item={item}
+              username={username}
+              initialAdded={addedTmdbIds.has(item.tmdb_id)}
+            />
           </div>
         ))}
       </div>

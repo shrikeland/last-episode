@@ -13,6 +13,10 @@ const CARDS_MARKER = '\n__CARDS__:'
 
 type Phase = 'questionnaire' | 'streaming' | 'results'
 
+function cleanIntroText(text: string): string {
+  return text.replaceAll('```json', '').replaceAll('```', '').trimStart()
+}
+
 interface Props {
   initialProfile: TasteProfile | null
   itemCount: number
@@ -112,12 +116,12 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
         if (introDoneIdx !== -1 && !introDone) {
           introDone = true
           const finalIntro = accumulated.slice(0, introDoneIdx)
-          setIntroText(finalIntro)
+          setIntroText(cleanIntroText(finalIntro))
           setIsStreamingIntro(false)
           setIsLoadingCards(true)
         } else if (!introDone) {
           // Still streaming intro
-          setIntroText(accumulated)
+          setIntroText(cleanIntroText(accumulated))
         }
       }
     } catch {

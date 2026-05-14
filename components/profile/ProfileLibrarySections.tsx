@@ -1,4 +1,5 @@
 import { ProfileMediaRow } from './ProfileMediaRow'
+import { getLibraryTmdbIds } from '@/app/actions/tmdb'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import type { MediaItem, MediaType } from '@/types'
 
@@ -15,7 +16,8 @@ interface ProfileLibrarySectionsProps {
   items: MediaItem[]
 }
 
-export function ProfileLibrarySections({ items }: ProfileLibrarySectionsProps) {
+export async function ProfileLibrarySections({ items }: ProfileLibrarySectionsProps) {
+  const initialAddedTmdbIds = await getLibraryTmdbIds(items.map((item) => item.tmdb_id))
   const grouped = items.reduce<Record<MediaType, MediaItem[]>>(
     (acc, item) => { acc[item.type].push(item); return acc },
     { movie: [], animation: [], tv: [], anime: [] }
@@ -33,7 +35,7 @@ export function ProfileLibrarySections({ items }: ProfileLibrarySectionsProps) {
               <h3 className="text-base font-semibold tracking-tight">{MEDIA_TYPE_LABELS[type]}</h3>
               <span className="text-sm text-muted-foreground tabular-nums">{typeItems.length}</span>
             </div>
-            <ProfileMediaRow items={typeItems} />
+            <ProfileMediaRow items={typeItems} initialAddedTmdbIds={initialAddedTmdbIds} />
           </div>
         )
       })}

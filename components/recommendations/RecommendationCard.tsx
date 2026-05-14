@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { CheckCircle, Plus, Film, Tv, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AddToLibraryDialog } from '@/components/library/AddToLibraryDialog'
 import { cn } from '@/lib/utils'
 import { addRecommendedTitle } from '@/app/actions/recommendations'
 import { RecommendationDetailDialog } from './RecommendationDetailDialog'
 import type { RecommendationCardData } from '@/types/recommendations'
-import type { MediaType } from '@/types'
+import type { CreateMediaItemOptions, MediaStatus, MediaType } from '@/types'
 
 const TYPE_LABELS: Record<string, string> = {
   movie: 'Фильм',
@@ -26,33 +27,54 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   anime: Sparkles,
 }
 
+const ERROR_MESSAGES = {
+  already_exists: 'Уже в вашей коллекции',
+  auth: 'Войдите, чтобы добавить тайтл',
+  tmdb: 'Ошибка получения данных TMDB',
+  db_error: 'Ошибка сохранения',
+  invalid_rating: 'Оценка должна быть от 0.5 до 10 с шагом 0.5',
+  planned_seasons: 'Нельзя сразу отметить просмотренным: есть запланированные сезоны',
+}
+
 function normalizeType(type: string): MediaType {
   if (type === 'movie' || type === 'animation' || type === 'tv' || type === 'anime') return type as MediaType
   return 'movie'
 }
 
 export function RecommendationCard({ title, year, type, reason, tmdbId, posterUrl, initialAdded = false }: RecommendationCardData & { initialAdded?: boolean }) {
-  const [added, setAdded] = useState(initialAdded)
-  const [isPending, startTransition] = useTransition()
+  const [state, setState] = useState<'idle' | 'loading' | 'added'>(initialAdded ? 'added' : 'idle')
+  const [status, setStatus] = useState<MediaStatus>('planned')
+  const [rating, setRating] = useState<number | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
 
   const TypeIcon = TYPE_ICONS[type] ?? Film
   const mediaType = normalizeType(type)
 
-  function handleAdd(e: React.MouseEvent) {
+  function handleAddClick(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!tmdbId || added) return
-    startTransition(async () => {
-      const result = await addRecommendedTitle(tmdbId, mediaType)
-      if (result.error === 'already_exists') {
-        setAdded(true)
-      } else if (result.error) {
-        toast.error('Не удалось добавить')
-      } else {
-        toast.success('Добавлено в список')
-        setAdded(true)
-      }
-    })
+    if (!tmdbId || state !== 'idle') return
+    setAddDialogOpen(true)
+  }
+
+  async function handleAddConfirm() {
+    if (!tmdbId) return
+
+    setState('loading')
+    const options: CreateMediaItemOptions = { status, rating }
+    const result = await addRecommendedTitle(tmdbId, mediaType, options)
+
+    if (result.error === 'already_exists') {
+      setState('added')
+      setAddDialogOpen(false)
+    } else if (result.error) {
+      setState('idle')
+      toast.error(ERROR_MESSAGES[result.error])
+    } else {
+      toast.success('Добавлено в список')
+      setState('added')
+      setAddDialogOpen(false)
+    }
   }
 
   return (
@@ -107,21 +129,23 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
           {tmdbId != null && (
             <Button
               data-testid="recommendation-add-button"
-              variant={added ? 'secondary' : 'outline'}
+              variant={state === 'added' ? 'secondary' : 'outline'}
               size="sm"
               className="w-full gap-1.5 text-xs"
-              disabled={isPending || added}
-              onClick={handleAdd}
+              disabled={state !== 'idle'}
+              onClick={handleAddClick}
             >
-              {added ? (
+              {state === 'added' ? (
                 <>
                   <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                   В библиотеке
                 </>
+              ) : state === 'loading' ? (
+                'Добавляю...'
               ) : (
                 <>
                   <Plus className="h-3.5 w-3.5" />
-                  {isPending ? 'Добавляю...' : 'Добавить'}
+                  Добавить
                 </>
               )}
             </Button>
@@ -136,6 +160,23 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
           reason={reason}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
+        />
+      )}
+
+      {tmdbId != null && (
+        <AddToLibraryDialog
+          title={title}
+          type={mediaType}
+          posterUrl={posterUrl}
+          releaseYear={year}
+          open={addDialogOpen}
+          onOpenChange={setAddDialogOpen}
+          state={state}
+          status={status}
+          onStatusChange={setStatus}
+          rating={rating}
+          onRatingChange={setRating}
+          onConfirm={handleAddConfirm}
         />
       )}
     </>

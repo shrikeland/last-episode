@@ -18,6 +18,7 @@ interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   nextButtonText?: string
   completeButtonText?: string
   disableStepIndicators?: boolean
+  maxReachableStep?: number
 }
 
 export default function Stepper({
@@ -35,16 +36,19 @@ export default function Stepper({
   nextButtonText = 'Продолжить',
   completeButtonText = 'Готово',
   disableStepIndicators = false,
+  maxReachableStep,
   ...rest
 }: StepperProps) {
   const [currentStep, setCurrentStep] = useState<number>(initialStep)
   const [direction, setDirection] = useState<number>(0)
   const stepsArray = Children.toArray(children)
   const totalSteps = stepsArray.length
+  const reachableStep = Math.min(maxReachableStep ?? totalSteps, totalSteps)
   const isCompleted = currentStep > totalSteps
   const isLastStep = currentStep === totalSteps
 
   const updateStep = (newStep: number) => {
+    if (newStep <= totalSteps && newStep > reachableStep) return
     setCurrentStep(newStep)
     if (newStep > totalSteps) {
       onFinalStepCompleted()
@@ -88,6 +92,7 @@ export default function Stepper({
                   step={stepNumber}
                   disableStepIndicators={disableStepIndicators}
                   currentStep={currentStep}
+                  disabled={disableStepIndicators || stepNumber > reachableStep}
                   onClickStep={clicked => {
                     setDirection(clicked > currentStep ? 1 : -1)
                     updateStep(clicked)
@@ -220,15 +225,24 @@ interface StepIndicatorProps {
   currentStep: number
   onClickStep: (clicked: number) => void
   disableStepIndicators?: boolean
+  disabled?: boolean
 }
 
-function StepIndicator({ step, currentStep, onClickStep, disableStepIndicators = false }: StepIndicatorProps) {
+function StepIndicator({
+  step,
+  currentStep,
+  onClickStep,
+  disableStepIndicators = false,
+  disabled = false,
+}: StepIndicatorProps) {
   const status = currentStep === step ? 'active' : currentStep < step ? 'inactive' : 'complete'
+  const canClick = !disableStepIndicators && !disabled && step !== currentStep
 
   return (
     <motion.div
-      onClick={() => !disableStepIndicators && step !== currentStep && onClickStep(step)}
-      className={`relative outline-none focus:outline-none ${!disableStepIndicators && step !== currentStep ? 'cursor-pointer' : 'cursor-default'}`}
+      onClick={() => canClick && onClickStep(step)}
+      aria-disabled={disabled}
+      className={`relative outline-none focus:outline-none ${canClick ? 'cursor-pointer' : 'cursor-default'} ${disabled ? 'opacity-50' : ''}`}
       animate={status}
       initial={false}
     >

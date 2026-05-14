@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Film } from 'lucide-react'
+import { ProfileAddToLibraryControl } from './ProfileAddToLibraryControl'
 import { MEDIA_STATUS_LABELS } from '@/types'
 import type { MediaItem } from '@/types'
 
@@ -22,9 +23,10 @@ const TYPE_LABELS_SHORT: Record<string, string> = {
 interface ProfileMediaCardProps {
   item: MediaItem
   username: string
+  initialAdded?: boolean
 }
 
-export function ProfileMediaCard({ item, username }: ProfileMediaCardProps) {
+export function ProfileMediaCard({ item, username, initialAdded = false }: ProfileMediaCardProps) {
   const statusColor = STATUS_HEX[item.status] ?? '#8899AA'
 
   return (
@@ -156,7 +158,6 @@ export function ProfileMediaCard({ item, username }: ProfileMediaCardProps) {
           position: 'absolute',
           bottom: 8,
           left: 12,
-          right: 12,
           display: 'flex',
           alignItems: 'center',
           zIndex: 6,
@@ -175,6 +176,12 @@ export function ProfileMediaCard({ item, username }: ProfileMediaCardProps) {
           </span>
         )}
       </div>
+      <ProfileAddToLibraryControl
+        item={item}
+        initialAdded={initialAdded}
+        iconOnly
+        className="absolute bottom-2 right-2 z-10 h-7 w-7 rounded-full bg-background/90 p-0 shadow-md backdrop-blur-sm hover:bg-background"
+      />
     </div>
   )
 }

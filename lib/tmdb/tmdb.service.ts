@@ -150,6 +150,190 @@ export interface TmdbBasicInfo {
   seasonCount: number | null
 }
 
+export interface TmdbRelatedTitle extends TmdbSearchResult {
+  source: 'collection' | 'recommendation' | 'similar'
+}
+
+type RawRelatedResult = {
+  id: number
+  title?: string | null
+  name?: string | null
+  original_title?: string | null
+  original_name?: string | null
+  poster_path?: string | null
+  release_date?: string | null
+  first_air_date?: string | null
+  overview?: string | null
+  vote_average?: number | null
+  vote_count?: number | null
+  genre_ids?: number[] | null
+  genres?: { id: number; name: string }[] | null
+  origin_country?: string[] | null
+}
+
+type RawMovieCollection = {
+  belongs_to_collection?: { id: number } | null
+}
+
+type RawTitleDetails = RawMovieCollection & {
+  title?: string | null
+  name?: string | null
+  original_title?: string | null
+  original_name?: string | null
+}
+
+type RawTranslations = {
+  translations?: {
+    data?: {
+      title?: string | null
+      name?: string | null
+    } | null
+  }[]
+}
+
+function normalizeTitleKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replaceAll('ё', 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+}
+
+function addTitleAlias(aliases: Set<string>, title: string | null | undefined) {
+  if (!title) return
+  const key = normalizeTitleKey(title)
+  if (key) aliases.add(key)
+}
+
+async function getCurrentTitleAliases(
+  tmdbId: number,
+  mediaType: 'movie' | 'tv',
+  details?: RawTitleDetails
+): Promise<Set<string>> {
+  const aliases = new Set<string>()
+
+  if (details) {
+    addTitleAlias(aliases, details.title ?? details.name)
+    addTitleAlias(aliases, details.original_title ?? details.original_name)
+  }
+
+  try {
+    const translationsRes = await fetch(buildUrl(`/${mediaType}/${tmdbId}/translations`), {
+      next: { revalidate: 60 * 60 * 24 },
+    })
+    if (!translationsRes.ok) return aliases
+
+    const translations = (await translationsRes.json()) as RawTranslations
+    for (const translation of translations.translations ?? []) {
+      addTitleAlias(aliases, translation.data?.title ?? translation.data?.name)
+    }
+  } catch {
+    return aliases
+  }
+
+  return aliases
+}
+
+function normalizeRelatedResult(
+  result: RawRelatedResult,
+  mediaType: 'movie' | 'tv',
+  source: TmdbRelatedTitle['source']
+): TmdbRelatedTitle | null {
+  const genreIds = result.genre_ids ?? result.genres?.map((genre) => genre.id) ?? []
+  const type = normalizeType(mediaType, genreIds, result.origin_country ?? [])
+  const title = result.title ?? result.name ?? ''
+  if (!title) return null
+
+  return {
+    tmdb_id: result.id,
+    type,
+    title,
+    original_title: result.original_title ?? result.original_name ?? '',
+    poster_path: result.poster_path ?? null,
+    release_year: extractYear(result.release_date ?? result.first_air_date),
+    overview: result.overview ?? '',
+    vote_average: result.vote_average ?? null,
+    vote_count: result.vote_count ?? null,
+    genre_ids: genreIds,
+    source,
+  }
+}
+
+async function fetchRelatedList(
+  path: string,
+  mediaType: 'movie' | 'tv',
+  source: TmdbRelatedTitle['source']
+): Promise<TmdbRelatedTitle[]> {
+  try {
+    const res = await fetch(buildUrl(path), { next: { revalidate: 60 * 60 * 24 } })
+    if (!res.ok) return []
+
+    const data = (await res.json()) as { results?: RawRelatedResult[]; parts?: RawRelatedResult[] }
+    const rows = data.results ?? data.parts ?? []
+    return rows
+      .map((result) => normalizeRelatedResult(result, mediaType, source))
+      .filter((result): result is TmdbRelatedTitle => result !== null)
+  } catch {
+    return []
+  }
+}
+
+export async function getRelatedTitles(
+  tmdbId: number,
+  type: MediaType,
+  limit = 12
+): Promise<TmdbRelatedTitle[]> {
+  const mediaType = type === 'movie' || type === 'animation' ? 'movie' : 'tv'
+  const lists: TmdbRelatedTitle[][] = []
+  let currentDetails: RawTitleDetails | undefined
+
+  if (mediaType === 'movie') {
+    try {
+      const detailsRes = await fetch(buildUrl(`/movie/${tmdbId}`), { next: { revalidate: 60 * 60 * 24 } })
+      if (detailsRes.ok) {
+        currentDetails = (await detailsRes.json()) as RawTitleDetails
+        const collectionId = currentDetails.belongs_to_collection?.id
+        if (collectionId) {
+          lists.push(await fetchRelatedList(`/collection/${collectionId}`, 'movie', 'collection'))
+        }
+      }
+    } catch {
+      // Related titles are best-effort and should not block the title page.
+    }
+  } else {
+    try {
+      const detailsRes = await fetch(buildUrl(`/tv/${tmdbId}`), { next: { revalidate: 60 * 60 * 24 } })
+      if (detailsRes.ok) currentDetails = (await detailsRes.json()) as RawTitleDetails
+    } catch {
+      // Related titles are best-effort and should not block the title page.
+    }
+  }
+
+  const [recommendations, similar, currentAliases] = await Promise.all([
+    fetchRelatedList(`/${mediaType}/${tmdbId}/recommendations`, mediaType, 'recommendation'),
+    fetchRelatedList(`/${mediaType}/${tmdbId}/similar`, mediaType, 'similar'),
+    getCurrentTitleAliases(tmdbId, mediaType, currentDetails),
+  ])
+
+  lists.push(recommendations, similar)
+
+  const seen = new Set<number>([tmdbId])
+  const related: TmdbRelatedTitle[] = []
+  for (const item of lists.flat()) {
+    if (seen.has(item.tmdb_id)) continue
+    if (
+      currentAliases.has(normalizeTitleKey(item.title)) ||
+      currentAliases.has(normalizeTitleKey(item.original_title))
+    ) {
+      continue
+    }
+    seen.add(item.tmdb_id)
+    related.push(item)
+    if (related.length >= limit) break
+  }
+
+  return related
+}
+
 export async function getCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbCredits> {
   const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
   const res = await fetch(url, { next: { revalidate: 0 } })

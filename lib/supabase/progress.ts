@@ -3,6 +3,89 @@ import type { Database, TmdbSeason, Season, Episode, SeasonWithEpisodes } from '
 
 type Client = SupabaseClient<Database>
 
+export async function syncSeasonsAndEpisodes(
+  client: Client,
+  mediaItemId: string,
+  seasons: TmdbSeason[]
+): Promise<void> {
+  for (const season of seasons) {
+    const { data: seasonData, error: seasonError } = await client
+      .from('seasons')
+      .upsert(
+        {
+          media_item_id: mediaItemId,
+          tmdb_season_id: season.tmdb_season_id,
+          season_number: season.season_number,
+          name: season.name,
+          episode_count: season.episode_count,
+        },
+        { onConflict: 'media_item_id,season_number' }
+      )
+      .select('id')
+      .single()
+
+    if (seasonError) throw seasonError
+    if (!seasonData || season.episodes.length === 0) continue
+
+    const episodesByNumber = new Map(
+      season.episodes.map((episode) => [episode.episode_number, episode])
+    )
+    const episodes = Array.from(episodesByNumber.values())
+
+    const { data: existingEpisodes, error: existingEpisodesError } = await client
+      .from('episodes')
+      .select('id, episode_number')
+      .eq('season_id', seasonData.id)
+      .in(
+        'episode_number',
+        episodes.map((episode) => episode.episode_number)
+      )
+
+    if (existingEpisodesError) throw existingEpisodesError
+
+    const existingEpisodeNumbers = new Set(
+      ((existingEpisodes ?? []) as { episode_number: number }[]).map(
+        (episode) => episode.episode_number
+      )
+    )
+
+    const newEpisodeRows = episodes
+      .filter((episode) => !existingEpisodeNumbers.has(episode.episode_number))
+      .map((episode) => ({
+        season_id: seasonData.id,
+        tmdb_episode_id: episode.tmdb_episode_id,
+        episode_number: episode.episode_number,
+        name: episode.name,
+        runtime_minutes: episode.runtime_minutes,
+        is_watched: false,
+      }))
+
+    if (newEpisodeRows.length > 0) {
+      const { error: insertEpisodesError } = await client
+        .from('episodes')
+        .insert(newEpisodeRows)
+
+      if (insertEpisodesError) throw insertEpisodesError
+    }
+
+    for (const episode of episodes) {
+      if (!existingEpisodeNumbers.has(episode.episode_number)) continue
+
+      const { error: updateEpisodeError } = await client
+        .from('episodes')
+        .update({
+          tmdb_episode_id: episode.tmdb_episode_id,
+          name: episode.name,
+          runtime_minutes: episode.runtime_minutes,
+        })
+        .eq('season_id', seasonData.id)
+        .eq('episode_number', episode.episode_number)
+
+      if (updateEpisodeError) throw updateEpisodeError
+    }
+  }
+}
+
 export async function createSeasonsAndEpisodes(
   client: Client,
   mediaItemId: string,

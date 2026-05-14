@@ -64,6 +64,7 @@ export function RecommendationQuestionnaire({ onSubmit, isLoading, disabled }: P
     currentStep === 1 ? contentType === null :
     currentStep === 2 ? mood === null :
     isLoading
+  const maxReachableStep = contentType === null ? 1 : mood === null ? 2 : 3
 
   return (
     <div
@@ -77,6 +78,7 @@ export function RecommendationQuestionnaire({ onSubmit, isLoading, disabled }: P
         completeButtonText={isLoading ? 'Подбираю...' : 'Получить рекомендации'}
         nextButtonProps={{ disabled: nextDisabled }}
         disableStepIndicators={false}
+        maxReachableStep={maxReachableStep}
       >
         {/* Step 1: Content type */}
         <Step>
