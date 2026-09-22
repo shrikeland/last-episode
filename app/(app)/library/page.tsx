@@ -1,8 +1,10 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { getMediaItems, getEpisodeProgressMap, getLibraryGenres } from '@/lib/supabase/media'
+import { getContinueWatching } from '@/lib/supabase/progress'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
+import { ContinueWatching } from '@/components/library/ContinueWatching'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField, SortDirection } from '@/types'
 
@@ -53,14 +55,6 @@ export default async function LibraryPage({
     direction: (params.dir as SortDirection) || 'desc',
   }
 
-  const [items, { genres, total }] = await Promise.all([
-    getMediaItems(supabase, user.id, filters, sort),
-    getLibraryGenres(supabase, user.id),
-  ])
-
-  const nonMovieIds = items.filter((i) => i.type !== 'movie').map((i) => i.id)
-  const progressMap = await getEpisodeProgressMap(supabase, nonMovieIds)
-
   const hasFilters = !!(
     params.search ||
     (params.status && params.status !== 'all') ||
@@ -68,6 +62,17 @@ export default async function LibraryPage({
     params.genre ||
     params.rating
   )
+
+  // Блок «Продолжить» только без фильтров: при поиске он мешает сверять «Найдено N» с выдачей
+  const [items, { genres, total }, continueItems] = await Promise.all([
+    getMediaItems(supabase, user.id, filters, sort),
+    getLibraryGenres(supabase, user.id),
+    hasFilters ? Promise.resolve([]) : getContinueWatching(supabase, user.id),
+  ])
+
+  const nonMovieIds = new Set(items.filter((i) => i.type !== 'movie').map((i) => i.id))
+  for (const c of continueItems) nonMovieIds.add(c.item.id)
+  const progressMap = await getEpisodeProgressMap(supabase, [...nonMovieIds])
 
   return (
     <div className="space-y-6">
@@ -77,6 +82,9 @@ export default async function LibraryPage({
         </div>
         <p className="text-sm text-muted-foreground">{total} тайтлов в коллекции</p>
       </div>
+      {continueItems.length > 0 && (
+        <ContinueWatching items={continueItems} progressMap={progressMap} />
+      )}
       <div className="space-y-3">
         <FilterBar currentFilters={params} genres={genres} />
         {hasFilters && (

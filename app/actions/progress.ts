@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import * as ProgressService from '@/lib/supabase/progress'
 import * as MediaService from '@/lib/supabase/media'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
-import type { MediaStatus, MediaType } from '@/types'
+import type { MediaStatus, MediaType, NextEpisode } from '@/types'
 
 type UpdateStatusResult =
   | { success: true }
@@ -16,6 +16,18 @@ export async function toggleEpisode(
 ): Promise<void> {
   const supabase = await createServerClient()
   await ProgressService.toggleEpisodeWatched(supabase, episodeId, isWatched)
+}
+
+/** Отметка из блока «Продолжить»: отмечает серию и отдаёт следующую, чтобы карточка обновилась на месте. */
+export async function watchNextEpisode(
+  mediaItemId: string,
+  episodeId: string
+): Promise<NextEpisode | null> {
+  const supabase = await createServerClient()
+  await ProgressService.toggleEpisodeWatched(supabase, episodeId, true)
+  const next = await ProgressService.getNextUnwatchedEpisode(supabase, mediaItemId)
+  revalidatePath('/library')
+  return next
 }
 
 export async function markSeason(
