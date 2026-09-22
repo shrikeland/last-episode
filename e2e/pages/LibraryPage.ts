@@ -27,9 +27,15 @@ export class LibraryPage {
   }
 
   async filterByStatus(status: string) {
-    await this.page.getByRole('combobox').first().click()
+    await this.page.getByTestId('filter-status').click()
     await this.page.getByRole('option', { name: status }).click()
     await this.page.waitForURL(/status=/, { timeout: 5000 })
+  }
+
+  async filterByType(type: string) {
+    await this.page.getByTestId('filter-type').click()
+    await this.page.getByRole('option', { name: type }).click()
+    await this.page.waitForURL(/type=/, { timeout: 5000 })
   }
 
   async deleteFirstCard() {
