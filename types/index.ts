@@ -121,6 +121,7 @@ export interface MediaFilters {
   genre?: string
   minRating?: number
   maxRating?: number
+  unrated?: boolean
 }
 
 export type SortField = 'release_year' | 'title' | 'rating'
