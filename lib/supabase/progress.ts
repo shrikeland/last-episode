@@ -13,11 +13,25 @@ import type {
 
 type Client = SupabaseClient<Database>
 
+async function isCompletedMediaItem(client: Client, mediaItemId: string): Promise<boolean> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('status')
+    .eq('id', mediaItemId)
+    .single()
+
+  if (error) throw error
+  return (data as { status: string } | null)?.status === 'completed'
+}
+
 export async function syncSeasonsAndEpisodes(
   client: Client,
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  const markNewEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
+  const watchedAt = markNewEpisodesWatched ? new Date().toISOString() : null
+
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
       .from('seasons')
@@ -67,7 +81,8 @@ export async function syncSeasonsAndEpisodes(
         episode_number: episode.episode_number,
         name: episode.name,
         runtime_minutes: episode.runtime_minutes,
-        is_watched: false,
+        is_watched: markNewEpisodesWatched,
+        watched_at: watchedAt,
       }))
 
     if (newEpisodeRows.length > 0) {
@@ -101,6 +116,9 @@ export async function createSeasonsAndEpisodes(
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  const markEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
+  const watchedAt = markEpisodesWatched ? new Date().toISOString() : null
+
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
       .from('seasons')
@@ -124,7 +142,8 @@ export async function createSeasonsAndEpisodes(
       episode_number: ep.episode_number,
       name: ep.name,
       runtime_minutes: ep.runtime_minutes,
-      is_watched: false,
+      is_watched: markEpisodesWatched,
+      watched_at: watchedAt,
     }))
 
     await client.from('episodes').insert(episodeRows)
