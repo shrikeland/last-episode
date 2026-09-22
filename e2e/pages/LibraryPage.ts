@@ -3,8 +3,9 @@ import { type Page, type Locator, expect } from '@playwright/test'
 export class LibraryPage {
   constructor(private readonly page: Page) {}
 
-  async goto() {
-    await this.page.goto('/library', { waitUntil: 'networkidle' })
+  async goto(search?: string) {
+    const url = search ? `/library?search=${encodeURIComponent(search)}` : '/library'
+    await this.page.goto(url, { waitUntil: 'networkidle' })
   }
 
   async waitForCards(timeout = 15000): Promise<Locator> {
