@@ -29,8 +29,9 @@ export async function syncSeasonsAndEpisodes(
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  // watched_at stays null: the real watch date is unknown, and a sync-time stamp
+  // would pile every episode onto one day in the /stats watch timeline.
   const markNewEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
-  const watchedAt = markNewEpisodesWatched ? new Date().toISOString() : null
 
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
@@ -82,7 +83,7 @@ export async function syncSeasonsAndEpisodes(
         name: episode.name,
         runtime_minutes: episode.runtime_minutes,
         is_watched: markNewEpisodesWatched,
-        watched_at: watchedAt,
+        watched_at: null,
       }))
 
     if (newEpisodeRows.length > 0) {
@@ -116,8 +117,8 @@ export async function createSeasonsAndEpisodes(
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  // watched_at stays null — see syncSeasonsAndEpisodes
   const markEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
-  const watchedAt = markEpisodesWatched ? new Date().toISOString() : null
 
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
@@ -143,7 +144,7 @@ export async function createSeasonsAndEpisodes(
       name: ep.name,
       runtime_minutes: ep.runtime_minutes,
       is_watched: markEpisodesWatched,
-      watched_at: watchedAt,
+      watched_at: null,
     }))
 
     await client.from('episodes').insert(episodeRows)
