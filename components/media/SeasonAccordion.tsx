@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CheckCircle2, ChevronDown } from 'lucide-react'
 import {
@@ -11,13 +12,15 @@ import {
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
 import { Button } from '@/components/ui/button'
 import { EpisodeRow } from './EpisodeRow'
-import { toggleEpisode, markSeason, markAllTitle } from '@/app/actions/progress'
+import { toggleEpisode, markSeason, markAllTitle, updateStatus } from '@/app/actions/progress'
 import { withRetry } from '@/lib/utils'
-import type { SeasonWithEpisodes, Episode } from '@/types'
+import type { SeasonWithEpisodes, Episode, MediaStatus, MediaType } from '@/types'
 
 interface SeasonAccordionProps {
   seasons: SeasonWithEpisodes[]
   mediaItemId: string
+  mediaType: MediaType
+  status: MediaStatus
 }
 
 type EpisodeMap = Record<string, Episode>
@@ -32,34 +35,73 @@ function buildEpisodeMap(seasons: SeasonWithEpisodes[]): EpisodeMap {
   return map
 }
 
-export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) {
+// Та же проверка, что hasPlannedSeasons на сервере: сезоны без созданных серий = тайтл не досмотрен
+function isTitleFullyWatched(seasons: SeasonWithEpisodes[], map: EpisodeMap): boolean {
+  const allEpisodes = Object.values(map)
+  const allSeasonsFullyCreated =
+    seasons.length > 0 &&
+    seasons.every((season) => {
+      const createdCount = season.episodes.filter((ep) => map[ep.id]).length
+      return season.episode_count > 0 && createdCount >= season.episode_count
+    })
+  return allSeasonsFullyCreated && allEpisodes.length > 0 && allEpisodes.every((e) => e.is_watched)
+}
+
+export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: SeasonAccordionProps) {
   const [episodeMap, setEpisodeMap] = useState<EpisodeMap>(() => buildEpisodeMap(seasons))
   const [, startTransition] = useTransition()
+  const router = useRouter()
+  // Предлагаем «Просмотрено» не чаще раза за визит на страницу
+  const offeredRef = useRef(false)
 
   // Sync with fresh server data after route revalidation
   useEffect(() => {
     setEpisodeMap(buildEpisodeMap(seasons))
   }, [seasons])
 
-  const allEpisodes = Object.values(episodeMap)
-  const allSeasonsFullyCreated =
-    seasons.length > 0 &&
-    seasons.every((season) => {
-      const createdCount = season.episodes.filter((ep) => episodeMap[ep.id]).length
-      return season.episode_count > 0 && createdCount >= season.episode_count
+  const allTitleWatched = isTitleFullyWatched(seasons, episodeMap)
+
+  function offerComplete(prevMap: EpisodeMap, nextMap: EpisodeMap) {
+    if (status === 'completed' || offeredRef.current) return
+    if (isTitleFullyWatched(seasons, prevMap) || !isTitleFullyWatched(seasons, nextMap)) return
+    offeredRef.current = true
+
+    toast('Все серии отмечены', {
+      description: 'Перевести в «Просмотрено»?',
+      duration: 10000,
+      action: {
+        label: 'Да',
+        onClick: () => {
+          startTransition(async () => {
+            try {
+              const result = await updateStatus(mediaItemId, 'completed', mediaType)
+              if (!result.success && result.error === 'planned_seasons') {
+                toast.error('Нельзя отметить просмотренным: есть запланированные сезоны')
+                return
+              }
+              toast.success('Статус: Просмотрено')
+              router.refresh()
+            } catch {
+              toast.error('Ошибка сохранения статуса')
+            }
+          })
+        },
+      },
     })
-  const allTitleWatched =
-    allSeasonsFullyCreated && allEpisodes.length > 0 && allEpisodes.every((e) => e.is_watched)
+  }
 
   function handleToggleEpisode(episodeId: string, isWatched: boolean) {
+    const previousMap = episodeMap
     const previous = episodeMap[episodeId]
-    setEpisodeMap((prev) => ({
-      ...prev,
-      [episodeId]: { ...prev[episodeId], is_watched: isWatched, watched_at: isWatched ? new Date().toISOString() : null },
-    }))
+    const nextMap = {
+      ...episodeMap,
+      [episodeId]: { ...previous, is_watched: isWatched, watched_at: isWatched ? new Date().toISOString() : null },
+    }
+    setEpisodeMap(nextMap)
     startTransition(async () => {
       try {
         await withRetry(() => toggleEpisode(episodeId, isWatched))
+        offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap((prev) => ({ ...prev, [episodeId]: previous }))
         toast.error('Ошибка сохранения')
@@ -70,20 +112,21 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
   function handleMarkSeason(season: SeasonWithEpisodes) {
     const allWatched = season.episodes.every((e) => episodeMap[e.id]?.is_watched)
     const targetWatched = !allWatched
-    const previousMap = { ...episodeMap }
+    const previousMap = episodeMap
     const now = new Date().toISOString()
 
-    setEpisodeMap((prev) => {
-      const updated = { ...prev }
-      for (const ep of season.episodes) {
-        updated[ep.id] = { ...updated[ep.id], is_watched: targetWatched, watched_at: targetWatched ? now : null }
-      }
-      return updated
-    })
+    const nextMap = { ...episodeMap }
+    for (const ep of season.episodes) {
+      const current = nextMap[ep.id]
+      if (!current || current.is_watched === targetWatched) continue
+      nextMap[ep.id] = { ...current, is_watched: targetWatched, watched_at: targetWatched ? now : null }
+    }
+    setEpisodeMap(nextMap)
 
     startTransition(async () => {
       try {
         await withRetry(() => markSeason(season.id, targetWatched))
+        offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap(previousMap)
         toast.error('Ошибка сохранения')
@@ -93,20 +136,20 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
 
   function handleMarkAllTitle() {
     const targetWatched = !allTitleWatched
-    const previousMap = { ...episodeMap }
+    const previousMap = episodeMap
     const now = new Date().toISOString()
 
-    setEpisodeMap((prev) => {
-      const updated = { ...prev }
-      for (const id of Object.keys(updated)) {
-        updated[id] = { ...updated[id], is_watched: targetWatched, watched_at: targetWatched ? now : null }
-      }
-      return updated
-    })
+    const nextMap = { ...episodeMap }
+    for (const [id, current] of Object.entries(nextMap)) {
+      if (current.is_watched === targetWatched) continue
+      nextMap[id] = { ...current, is_watched: targetWatched, watched_at: targetWatched ? now : null }
+    }
+    setEpisodeMap(nextMap)
 
     startTransition(async () => {
       try {
         await withRetry(() => markAllTitle(mediaItemId, targetWatched))
+        offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap(previousMap)
         toast.error('Ошибка сохранения')
