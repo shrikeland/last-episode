@@ -15,9 +15,9 @@ export default function EmailConfirmedPage() {
         <div className="space-y-2">
           <h2 className="text-xl font-semibold tracking-tight">Email подтверждён!</h2>
           <p className="text-sm text-muted-foreground">
-            Вы успешно подтвердили почту. Теперь вы можете{' '}
-            <Link href="/login" className="text-primary hover:underline font-medium">
-              авторизоваться
+            Вы успешно подтвердили почту. Теперь можно{' '}
+            <Link href="/library" className="text-primary hover:underline font-medium">
+              перейти в библиотеку
             </Link>
             .
           </p>

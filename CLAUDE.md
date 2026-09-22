@@ -150,7 +150,8 @@ supabase/migrations/  # source of truth for DB schema — always add here, never
 ### Auth Flow
 Two layers: `proxy.ts` (Next.js 16 name for middleware — build lists it as `ƒ Proxy (Middleware)`) plus the layout guard.
 - `proxy.ts` runs on every path except static assets (incl. `/api/*`): refreshes the Supabase session, then
-  - signed-in user on an auth page (`/login`, `/register`, `/email-confirmed`, `/auth/*`) → redirect to `/library`
+  - `/email-confirmed` → served to everyone (the callback has just created a session, so it can't be guest-only)
+  - signed-in user on an auth page (`/login`, `/register`, `/auth/*`) → redirect to `/library`
   - signed-out user on any other path → redirect to `/login`
 - `proxy.ts` builds its own client from request cookies and calls `supabase.auth.getUser()` directly — an exception to the `getServerUser()` rule, like API routes
 - `app/(app)/layout.tsx` still calls `getServerUser()` and `redirect('/login')` if unauthenticated — second layer, keep it

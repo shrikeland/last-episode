@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserClient } from '@/lib/supabase/client'
@@ -34,7 +34,16 @@ function mapAuthError(message: string): string {
   return 'Не удалось создать аккаунт. Попробуйте снова'
 }
 
-export default function RegisterPage() {
+// /auth/callback не смог обменять код — чаще всего ссылку открыли в другом браузере
+const CONFIRMATION_FAILED_ERROR =
+  'Не удалось подтвердить почту в этом браузере. Попробуйте войти — если не получится, зарегистрируйтесь ещё раз'
+
+export default function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error: callbackError } = use(searchParams)
   const router = useRouter()
   const supabase = createBrowserClient()
   const [username, setUsername] = useState('')
@@ -45,7 +54,9 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(
+    callbackError === 'confirmation_failed' ? CONFIRMATION_FAILED_ERROR : null
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

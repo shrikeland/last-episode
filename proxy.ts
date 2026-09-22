@@ -32,10 +32,15 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+
+  // Доступна всем: сюда приходят из /auth/callback, когда сессия уже создана
+  if (pathname === '/email-confirmed') {
+    return supabaseResponse
+  }
+
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/register' ||
-    pathname === '/email-confirmed' ||
     pathname.startsWith('/auth/')
 
   // Авторизованный на странице входа → в библиотеку
