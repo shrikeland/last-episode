@@ -1,10 +1,14 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItems } from '@/lib/supabase/media'
+import { getRecentWatchHistory } from '@/lib/supabase/progress'
 import { computeStats } from '@/lib/stats'
 import type { EpisodeForStats } from '@/lib/stats'
+import { groupWatchHistory } from '@/lib/timeline'
+import { WATCH_TIMELINE_DAYS, WATCH_TIMEZONE } from '@/lib/constants'
 import { StatsOverview } from '@/components/stats/StatsOverview'
 import { StatsBreakdown } from '@/components/stats/StatsBreakdown'
 import { GenreTopList } from '@/components/stats/GenreTopList'
+import { WatchTimeline } from '@/components/stats/WatchTimeline'
 import type { MediaType } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +19,15 @@ export default async function StatsPage() {
 
   const supabase = await createServerClient()
 
-  const mediaItems = await getMediaItems(supabase, user.id)
+  const [mediaItems, watchHistory] = await Promise.all([
+    getMediaItems(supabase, user.id),
+    // Timeline is secondary — a failed query must not take down the whole stats page
+    getRecentWatchHistory(supabase, user.id, WATCH_TIMELINE_DAYS).catch((error) => {
+      console.error('Failed to load watch history', error)
+      return []
+    }),
+  ])
+  const timeline = groupWatchHistory(watchHistory, WATCH_TIMEZONE)
 
   const tvAnimeIds = mediaItems
     .filter((i) => i.type !== 'movie' && i.type !== 'animation')
@@ -70,6 +82,8 @@ export default async function StatsPage() {
         <StatsBreakdown stats={stats} />
         <GenreTopList topGenres={stats.topGenres} />
       </div>
+
+      <WatchTimeline timeline={timeline} days={WATCH_TIMELINE_DAYS} />
     </div>
   )
 }
