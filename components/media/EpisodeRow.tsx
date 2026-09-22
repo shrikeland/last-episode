@@ -1,5 +1,6 @@
 'use client'
 
+import { ListChecks } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import type { Episode } from '@/types'
@@ -7,6 +8,7 @@ import type { Episode } from '@/types'
 interface EpisodeRowProps {
   episode: Episode
   onToggle: (episodeId: string, isWatched: boolean) => void
+  onMarkUpTo?: (episode: Episode) => void
 }
 
 function formatDate(iso: string): string {
@@ -17,9 +19,9 @@ function formatDate(iso: string): string {
   return `${day}.${month}.${year}`
 }
 
-export function EpisodeRow({ episode, onToggle }: EpisodeRowProps) {
+export function EpisodeRow({ episode, onToggle, onMarkUpTo }: EpisodeRowProps) {
   return (
-    <div className="flex items-center gap-3 py-1.5 px-1 rounded hover:bg-muted/30 transition-colors">
+    <div className="group flex items-center gap-3 py-1.5 px-1 rounded hover:bg-muted/30 transition-colors">
       <Checkbox
         checked={episode.is_watched}
         onCheckedChange={(checked) => onToggle(episode.id, checked === true)}
@@ -48,6 +50,19 @@ export function EpisodeRow({ episode, onToggle }: EpisodeRowProps) {
         <span className="text-xs text-muted-foreground shrink-0">
           {formatDate(episode.watched_at)}
         </span>
+      )}
+      {!episode.is_watched && onMarkUpTo && (
+        // На тач-устройствах наведения нет, поэтому прячем кнопку только от md
+        <button
+          type="button"
+          onClick={() => onMarkUpTo(episode)}
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity"
+          title="Отметить по эту серию включительно"
+          aria-label={`Отметить по эпизод ${episode.episode_number} включительно`}
+          data-testid={`episode-mark-up-to-${episode.id}`}
+        >
+          <ListChecks className="h-4 w-4" />
+        </button>
       )}
     </div>
   )
