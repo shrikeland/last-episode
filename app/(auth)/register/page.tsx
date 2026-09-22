@@ -89,7 +89,7 @@ export default function RegisterPage() {
 
   if (submitted) {
     return (
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md" data-testid="register-email-sent">
         <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
           <MailCheck className="h-12 w-12 text-primary" />
           <div className="space-y-2">
@@ -101,6 +101,19 @@ export default function RegisterPage() {
             <p className="text-xs text-muted-foreground pt-2">
               Не пришло письмо? Проверьте папку «Спам».
             </p>
+          </div>
+          <div className="flex w-full flex-col items-center gap-2 pt-2">
+            <Button asChild className="w-full" data-testid="register-go-to-login">
+              <Link href="/login">Перейти ко входу</Link>
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSubmitted(false)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              data-testid="register-change-email"
+            >
+              Ошиблись в адресе? Указать другой email
+            </button>
           </div>
         </CardContent>
       </Card>
