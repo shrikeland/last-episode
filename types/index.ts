@@ -141,6 +141,42 @@ export interface WatchStats {
   topGenres: { genre: string; count: number }[]
 }
 
+// Watch timeline
+export interface WatchHistoryRow {
+  episode_id: string
+  episode_number: number
+  runtime_minutes: number | null
+  watched_at: string
+  season_number: number
+  media_item_id: string
+  title: string
+  poster_url: string | null
+}
+
+export interface WatchTimelineEntry {
+  key: string
+  media_item_id: string
+  title: string
+  poster_url: string | null
+  // Single episode: seasons has one element and episodeNumber is set.
+  // Batch (mark season / mark whole title): episodeNumber is null.
+  seasons: number[]
+  episodeNumber: number | null
+  episodeCount: number
+}
+
+export interface WatchTimelineDay {
+  dateKey: string
+  label: string
+  entries: WatchTimelineEntry[]
+}
+
+export interface WatchTimeline {
+  days: WatchTimelineDay[]
+  totalEpisodes: number
+  totalMinutes: number
+}
+
 // Profile
 export interface Profile {
   id: string
