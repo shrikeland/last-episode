@@ -38,6 +38,16 @@ export async function markSeason(
   await ProgressService.markSeasonWatched(supabase, seasonId, isWatched)
 }
 
+/** «Отметить по эту серию»: сезон и тайтл определяются по episodeId на сервере, а не с клиента. */
+export async function markUpToEpisode(
+  episodeId: string,
+  includePreviousSeasons: boolean
+): Promise<void> {
+  const supabase = await createServerClient()
+  await ProgressService.markEpisodesUpTo(supabase, episodeId, includePreviousSeasons)
+  revalidatePath('/library')
+}
+
 export async function markAllTitle(
   mediaItemId: string,
   isWatched: boolean

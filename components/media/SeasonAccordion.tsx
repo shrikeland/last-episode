@@ -8,10 +8,20 @@ import {
   AccordionContent,
   AccordionItem,
 } from '@/components/ui/accordion'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { EpisodeRow } from './EpisodeRow'
-import { toggleEpisode, markSeason, markAllTitle } from '@/app/actions/progress'
+import { toggleEpisode, markSeason, markAllTitle, markUpToEpisode } from '@/app/actions/progress'
 import { withRetry } from '@/lib/utils'
 import type { SeasonWithEpisodes, Episode } from '@/types'
 
@@ -21,6 +31,8 @@ interface SeasonAccordionProps {
 }
 
 type EpisodeMap = Record<string, Episode>
+
+type PendingMarkUpTo = { season: SeasonWithEpisodes; episode: Episode }
 
 function buildEpisodeMap(seasons: SeasonWithEpisodes[]): EpisodeMap {
   const map: EpisodeMap = {}
@@ -35,6 +47,7 @@ function buildEpisodeMap(seasons: SeasonWithEpisodes[]): EpisodeMap {
 export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) {
   const [episodeMap, setEpisodeMap] = useState<EpisodeMap>(() => buildEpisodeMap(seasons))
   const [, startTransition] = useTransition()
+  const [pendingMarkUpTo, setPendingMarkUpTo] = useState<PendingMarkUpTo | null>(null)
 
   // Sync with fresh server data after route revalidation
   useEffect(() => {
@@ -89,6 +102,56 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
         toast.error('Ошибка сохранения')
       }
     })
+  }
+
+  function previousSeasonsOf(season: SeasonWithEpisodes): SeasonWithEpisodes[] {
+    return seasons.filter((s) => s.season_number < season.season_number)
+  }
+
+  function handleMarkUpTo(season: SeasonWithEpisodes, episode: Episode, includePrevious: boolean) {
+    const previousMap = { ...episodeMap }
+    const now = new Date().toISOString()
+    const targets = [
+      ...season.episodes.filter((ep) => ep.episode_number <= episode.episode_number),
+      ...(includePrevious ? previousSeasonsOf(season).flatMap((s) => s.episodes) : []),
+    ]
+
+    setEpisodeMap((prev) => {
+      const updated = { ...prev }
+      for (const ep of targets) {
+        // Уже отмеченные сохраняют свою дату — сервер их тоже не трогает
+        if (updated[ep.id] && !updated[ep.id].is_watched) {
+          updated[ep.id] = { ...updated[ep.id], is_watched: true, watched_at: now }
+        }
+      }
+      return updated
+    })
+
+    startTransition(async () => {
+      try {
+        await withRetry(() => markUpToEpisode(episode.id, includePrevious))
+      } catch {
+        setEpisodeMap(previousMap)
+        toast.error('Ошибка сохранения')
+      }
+    })
+  }
+
+  function requestMarkUpTo(season: SeasonWithEpisodes, episode: Episode) {
+    const hasUnwatchedBefore = previousSeasonsOf(season).some((s) =>
+      s.episodes.some((ep) => !episodeMap[ep.id]?.is_watched)
+    )
+    if (hasUnwatchedBefore) {
+      setPendingMarkUpTo({ season, episode })
+    } else {
+      handleMarkUpTo(season, episode, false)
+    }
+  }
+
+  function confirmMarkUpTo(includePrevious: boolean) {
+    if (!pendingMarkUpTo) return
+    handleMarkUpTo(pendingMarkUpTo.season, pendingMarkUpTo.episode, includePrevious)
+    setPendingMarkUpTo(null)
   }
 
   function handleMarkAllTitle() {
@@ -183,6 +246,7 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
                       key={ep.id}
                       episode={ep}
                       onToggle={handleToggleEpisode}
+                      onMarkUpTo={(episode) => requestMarkUpTo(season, episode)}
                     />
                   ))}
                 </div>
@@ -191,6 +255,37 @@ export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) 
           )
         })}
       </Accordion>
+
+      <AlertDialog
+        open={pendingMarkUpTo !== null}
+        onOpenChange={(open) => !open && setPendingMarkUpTo(null)}
+      >
+        <AlertDialogContent data-testid="mark-up-to-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Отметить предыдущие сезоны?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingMarkUpTo &&
+                `Будут отмечены серии 1–${pendingMarkUpTo.episode.episode_number} сезона ${pendingMarkUpTo.season.season_number}. В сезонах до него тоже есть непросмотренные серии — отметить и их?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'outline' })}
+              onClick={() => confirmMarkUpTo(false)}
+              data-testid="mark-up-to-season-only"
+            >
+              Только этот сезон
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => confirmMarkUpTo(true)}
+              data-testid="mark-up-to-all-previous"
+            >
+              Все сезоны до этого
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
