@@ -70,7 +70,4 @@ e2e/blob-report/
 e2e/support/auth.storage.json
 .ds-sync/
 ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
-.design-sync/compiled-tailwind.css
+.design-sync/
