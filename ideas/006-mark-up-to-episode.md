@@ -4,7 +4,7 @@ slug: mark-up-to-episode
 lens: ввод и трение
 value: high
 cost: S
-status: planned
+status: done
 created: 2026-07-27
 ---
 
