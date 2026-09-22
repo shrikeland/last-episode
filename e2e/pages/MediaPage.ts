@@ -15,9 +15,11 @@ export class MediaPage {
   }
 
   async openFirstSeasonAccordion() {
-    // Season accordion headers are buttons inside season-accordion
+    // Только Radix-триггер сезона (у него aria-expanded): первая кнопка в season-accordion —
+    // это «Отметить всё / Снять отметку» в шапке прогресса, клик по ней меняет данные
     const accordion = this.page.getByTestId('season-accordion')
-    const trigger = accordion.getByRole('button').first()
+    const trigger = accordion.locator('button[aria-expanded]').first()
+    if ((await trigger.getAttribute('aria-expanded')) === 'true') return
     await trigger.click()
     await this.page.waitForTimeout(300)
   }
