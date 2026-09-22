@@ -1,4 +1,4 @@
-import { test as base, type Page } from '@playwright/test'
+import { test as base, type Browser, type BrowserContext, type Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
 import { isBaseUrlReachable } from '@/support/network'
@@ -13,10 +13,28 @@ async function performLogin(page: Page, email: string, password: string) {
   await page.waitForURL(/library/, { timeout: 20000 })
 }
 
+async function saveFreshSession(browser: Browser, email: string, password: string) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await performLogin(page, email, password)
+  await context.storageState({ path: STORAGE_STATE_PATH })
+  await context.close()
+}
+
+/**
+ * The cached session goes stale when it is revoked server-side — e.g. TC-AUTH-010
+ * logs out, and signOut() defaults to scope 'global', revoking every session of
+ * the test user. The (app) layout then answers /library with a redirect to /login.
+ */
+async function isSessionValid(context: BrowserContext): Promise<boolean> {
+  const res = await context.request.get('/library', { maxRedirects: 0 })
+  return res.ok()
+}
+
 /**
  * authenticatedPage: a Page fixture that is pre-logged-in via stored session.
  * On first use it logs in via UI and saves storageState; subsequent uses load
- * the saved state directly (fast, no extra login roundtrip).
+ * the saved state and only log in again if the stored session was revoked.
  */
 export const test = base.extend<{
   authenticatedPage: Page
@@ -38,16 +56,15 @@ export const test = base.extend<{
 
     if (!fs.existsSync(STORAGE_STATE_PATH)) {
       // First time: log in through UI and persist the session
-      const context = await browser.newContext()
-      const page = await context.newPage()
-      await performLogin(page, email, password)
-      await context.storageState({ path: STORAGE_STATE_PATH })
-      await context.close()
+      await saveFreshSession(browser, email, password)
     }
 
-    const context = await browser.newContext({
-      storageState: STORAGE_STATE_PATH,
-    })
+    let context = await browser.newContext({ storageState: STORAGE_STATE_PATH })
+    if (!(await isSessionValid(context))) {
+      await context.close()
+      await saveFreshSession(browser, email, password)
+      context = await browser.newContext({ storageState: STORAGE_STATE_PATH })
+    }
     const page = await context.newPage()
     await use(page)
     await context.close()

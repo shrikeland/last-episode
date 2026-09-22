@@ -198,6 +198,62 @@ export async function markSeasonWatched(
   if (error) throw error
 }
 
+/**
+ * Отмечает серии сезона до указанной включительно и, опционально, все серии предыдущих сезонов.
+ * Уже отмеченные серии не трогаются, чтобы не перезаписать их watched_at.
+ * Один watched_at на все апдейты — лента просмотра склеивает массовую отметку по нему.
+ */
+export async function markEpisodesUpTo(
+  client: Client,
+  episodeId: string,
+  includePreviousSeasons: boolean
+): Promise<void> {
+  const { data: episode, error: episodeError } = await client
+    .from('episodes')
+    .select('episode_number, season_id, seasons!inner(season_number, media_item_id)')
+    .eq('id', episodeId)
+    .single()
+
+  if (episodeError) throw episodeError
+
+  const { episode_number, season_id, seasons: season } = episode as unknown as {
+    episode_number: number
+    season_id: string
+    seasons: { season_number: number; media_item_id: string }
+  }
+  const update = { is_watched: true, watched_at: new Date().toISOString() }
+
+  const { error } = await client
+    .from('episodes')
+    .update(update)
+    .eq('season_id', season_id)
+    .lte('episode_number', episode_number)
+    .eq('is_watched', false)
+
+  if (error) throw error
+  if (!includePreviousSeasons) return
+
+  const { data: previousSeasons, error: seasonsError } = await client
+    .from('seasons')
+    .select('id')
+    .eq('media_item_id', season.media_item_id)
+    .lt('season_number', season.season_number)
+
+  if (seasonsError) throw seasonsError
+  if (!previousSeasons || previousSeasons.length === 0) return
+
+  const { error: previousError } = await client
+    .from('episodes')
+    .update(update)
+    .in(
+      'season_id',
+      (previousSeasons as { id: string }[]).map((s) => s.id)
+    )
+    .eq('is_watched', false)
+
+  if (previousError) throw previousError
+}
+
 export async function markAllEpisodesWatched(
   client: Client,
   mediaItemId: string
