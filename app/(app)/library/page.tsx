@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { getMediaItems, getEpisodeProgressMap, getLibraryGenres } from '@/lib/supabase/media'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
-import { MEDIA_TYPE_LABELS } from '@/types'
-import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField, SortDirection } from '@/types'
+import { MEDIA_TYPE_LABELS, SORT_FIELDS } from '@/types'
+import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField } from '@/types'
 
 interface SearchParams {
   search?: string
@@ -48,9 +48,10 @@ export default async function LibraryPage({
     ...parseRating(params.rating),
   }
 
+  // Значения из URL уходят в .order() — принимаем только известные поля
   const sort: SortOptions = {
-    field: (params.sort as SortField) || 'release_year',
-    direction: (params.dir as SortDirection) || 'desc',
+    field: SORT_FIELDS.includes(params.sort as SortField) ? (params.sort as SortField) : 'created_at',
+    direction: params.dir === 'asc' ? 'asc' : 'desc',
   }
 
   const [items, { genres, total }] = await Promise.all([
@@ -78,7 +79,10 @@ export default async function LibraryPage({
         <p className="text-sm text-muted-foreground">{total} тайтлов в коллекции</p>
       </div>
       <div className="space-y-3">
-        <FilterBar currentFilters={params} genres={genres} />
+        <FilterBar
+          currentFilters={{ ...params, sort: sort.field, dir: sort.direction }}
+          genres={genres}
+        />
         {hasFilters && (
           <p className="text-sm text-muted-foreground" data-testid="library-found-count">
             Найдено: {items.length}

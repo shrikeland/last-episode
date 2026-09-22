@@ -124,7 +124,8 @@ export interface MediaFilters {
   unrated?: boolean
 }
 
-export type SortField = 'release_year' | 'title' | 'rating'
+export const SORT_FIELDS = ['created_at', 'updated_at', 'release_year', 'title', 'rating'] as const
+export type SortField = (typeof SORT_FIELDS)[number]
 export type SortDirection = 'asc' | 'desc'
 
 export interface SortOptions {
