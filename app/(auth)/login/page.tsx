@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createBrowserClient } from '@/lib/supabase/client'
@@ -23,6 +23,31 @@ function mapAuthError(message: string): string {
   if (message.includes('Email not confirmed')) return 'Подтвердите email перед входом'
   if (message.includes('User not found')) return 'Пользователь не найден'
   return 'Проблема с соединением. Попробуйте снова'
+}
+
+// Тост после перехода по ссылке из письма подтверждения (см. app/auth/callback/route.ts).
+// Фиксированный id — чтобы двойной вызов эффекта в StrictMode не показал два тоста;
+// параметр убираем из URL, чтобы тост не повторялся при перезагрузке.
+function EmailConfirmationToast() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const confirmed = searchParams.get('confirmed')
+  const error = searchParams.get('error')
+
+  useEffect(() => {
+    if (confirmed) {
+      toast.success('Почта подтверждена, можете входить', { id: 'email-confirmation' })
+    } else if (error === 'confirmation_failed') {
+      toast.error('Ссылка устарела или уже использована. Попробуйте войти', {
+        id: 'email-confirmation',
+      })
+    } else {
+      return
+    }
+    router.replace('/login')
+  }, [confirmed, error, router])
+
+  return null
 }
 
 export default function LoginPage() {
@@ -53,6 +78,9 @@ export default function LoginPage() {
 
   return (
     <Card className="w-full max-w-md" data-testid="login-card">
+      <Suspense fallback={null}>
+        <EmailConfirmationToast />
+      </Suspense>
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-2xl font-bold tracking-tight">
           Добро пожаловать
