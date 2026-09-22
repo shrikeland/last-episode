@@ -120,7 +120,7 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
 
       {/* Сортировка */}
       <Select
-        value={`${currentFilters.sort ?? 'release_year'}_${currentFilters.dir ?? 'desc'}`}
+        value={`${currentFilters.sort ?? 'created_at'}_${currentFilters.dir ?? 'desc'}`}
         onValueChange={(v) => {
           const lastUnderscore = v.lastIndexOf('_')
           const field = v.slice(0, lastUnderscore)
@@ -128,10 +128,12 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
           updateUrl({ sort: field, dir })
         }}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="Сортировка" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="created_at_desc">Недавно добавленные</SelectItem>
+          <SelectItem value="updated_at_desc">Недавно обновлённые</SelectItem>
           <SelectItem value="release_year_desc">Новые сначала</SelectItem>
           <SelectItem value="release_year_asc">Старые сначала</SelectItem>
           <SelectItem value="title_asc">По названию А–Я</SelectItem>

@@ -2,7 +2,8 @@ import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItems, getEpisodeProgressMap } from '@/lib/supabase/media'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
-import type { MediaFilters, SortOptions, MediaStatus, SortField, SortDirection } from '@/types'
+import { SORT_FIELDS } from '@/types'
+import type { MediaFilters, SortOptions, MediaStatus, SortField } from '@/types'
 
 interface SearchParams {
   search?: string
@@ -32,9 +33,10 @@ export default async function LibraryPage({
     genre: params.genre || undefined,
   }
 
+  // Значения из URL уходят в .order() — принимаем только известные поля
   const sort: SortOptions = {
-    field: (params.sort as SortField) || 'release_year',
-    direction: (params.dir as SortDirection) || 'desc',
+    field: SORT_FIELDS.includes(params.sort as SortField) ? (params.sort as SortField) : 'created_at',
+    direction: params.dir === 'asc' ? 'asc' : 'desc',
   }
 
   const items = await getMediaItems(supabase, user.id, filters, sort)
