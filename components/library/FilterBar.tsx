@@ -189,7 +189,7 @@ export function FilterBar({ currentFilters, genres }: FilterBarProps) {
           updateUrl({ sort: field, dir })
         }}
       >
-        <SelectTrigger className="w-[calc(50%-6px)] sm:w-[200px]">
+        <SelectTrigger className="w-full sm:w-[200px]" data-testid="library-sort">
           <SelectValue placeholder="Сортировка" />
         </SelectTrigger>
         <SelectContent>

@@ -4,7 +4,7 @@ slug: sort-recently-added
 lens: мёртвые данные
 value: medium
 cost: S
-status: planned
+status: done
 created: 2026-07-27
 ---
 

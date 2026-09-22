@@ -79,7 +79,10 @@ export default async function LibraryPage({
         <p className="text-sm text-muted-foreground">{total} тайтлов в коллекции</p>
       </div>
       <div className="space-y-3">
-        <FilterBar currentFilters={params} genres={genres} />
+        <FilterBar
+          currentFilters={{ ...params, sort: sort.field, dir: sort.direction }}
+          genres={genres}
+        />
         {hasFilters && (
           <p className="text-sm text-muted-foreground" data-testid="library-found-count">
             Найдено: {items.length}
