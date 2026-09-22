@@ -16,6 +16,7 @@ export async function toggleEpisode(
 ): Promise<void> {
   const supabase = await createServerClient()
   await ProgressService.toggleEpisodeWatched(supabase, episodeId, isWatched)
+  revalidatePath('/library')
 }
 
 /** Отметка из блока «Продолжить»: отмечает серию и отдаёт следующую, чтобы карточка обновилась на месте. */
@@ -36,6 +37,7 @@ export async function markSeason(
 ): Promise<void> {
   const supabase = await createServerClient()
   await ProgressService.markSeasonWatched(supabase, seasonId, isWatched)
+  revalidatePath('/library')
 }
 
 /** «Отметить по эту серию»: сезон и тайтл определяются по episodeId на сервере, а не с клиента. */
@@ -58,6 +60,7 @@ export async function markAllTitle(
   } else {
     await ProgressService.markAllEpisodesUnwatched(supabase, mediaItemId)
   }
+  revalidatePath('/library')
 }
 
 export async function updateStatus(
