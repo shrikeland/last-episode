@@ -1,6 +1,7 @@
 import { test as authTest, expect } from '@/fixtures/auth.fixture'
 import { test, expect as baseExpect } from '@playwright/test'
 import { LibraryPage } from '@/pages/LibraryPage'
+import { SearchPage } from '@/pages/SearchPage'
 import { isBaseUrlReachable } from '@/support/network'
 
 let reachable: boolean
@@ -77,15 +78,24 @@ authTest('TC-LIB-006: clicking card navigates to /media/[id]', async ({ authenti
   await expect(page).toHaveURL(/\/media\//, { timeout: 15000 })
 })
 
+// Throwaway title TC-LIB-004 adds and deletes itself, so the test account's library
+// doesn't shrink run over run. The library filter also matches original_title.
+const THROWAWAY_TITLE = 'Koyaanisqatsi'
+
 authTest('TC-LIB-004: delete item removes card from library', async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const library = new LibraryPage(page)
-  await library.goto()
-  await library.waitForCards()
 
+  // Arrange: add the throwaway title (may already be there after an interrupted run)
+  const search = new SearchPage(page)
+  await search.goto()
+  await search.search(THROWAWAY_TITLE)
+  await search.waitForResults(15000)
+  await search.ensureFirstResultAdded()
+
+  const library = new LibraryPage(page)
+  await library.goto(THROWAWAY_TITLE)
+  await library.waitForCards()
   const countBefore = await library.cards().count()
-  // Only delete if there are enough items (safety check — we don't want empty library)
-  authTest.skip(countBefore < 2, 'Need at least 2 items in library to safely test delete')
 
   await library.deleteFirstCard()
 

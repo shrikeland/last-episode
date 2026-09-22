@@ -53,6 +53,17 @@ export class SearchPage {
     await this.page.getByRole('button', { name: 'Отмена' }).click()
   }
 
+  /** Adds the first result with the default status, unless it's already in the library. */
+  async ensureFirstResultAdded() {
+    const addButton = this.firstResultCard().getByRole('button', { name: 'Добавить' })
+    if (await addButton.isVisible()) {
+      await addButton.click()
+      await this.assertDialogOpen()
+      await this.confirmAdd()
+    }
+    await this.assertFirstCardAdded()
+  }
+
   async assertFirstCardAdded() {
     const card = this.firstResultCard()
     await expect(card.getByRole('button', { name: 'Добавлено' })).toBeVisible({ timeout: 10000 })
