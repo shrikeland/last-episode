@@ -11,8 +11,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search, Loader2 } from 'lucide-react'
-import { MEDIA_STATUS_LABELS } from '@/types'
-import type { MediaStatus } from '@/types'
+import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS } from '@/types'
+import type { MediaStatus, MediaType } from '@/types'
+import { capitalizeGenre } from '@/lib/genres'
+
+// На телефоне по два селекта в ряд, с sm — фиксированная ширина
+const SELECT_WIDTH = 'w-[calc(50%-6px)] sm:w-[160px]'
 
 interface FilterBarProps {
   currentFilters: {
@@ -20,12 +24,15 @@ interface FilterBarProps {
     status?: string
     type?: string
     genre?: string
+    rating?: string
     sort?: string
     dir?: string
   }
+  /** Канонические жанры всей библиотеки (нижний регистр), без учёта активных фильтров */
+  genres: string[]
 }
 
-export function FilterBar({ currentFilters }: FilterBarProps) {
+export function FilterBar({ currentFilters, genres }: FilterBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
@@ -105,7 +112,7 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
         value={currentFilters.status ?? 'all'}
         onValueChange={(v) => updateUrl({ status: v })}
       >
-        <SelectTrigger className="w-[160px]">
+        <SelectTrigger className={SELECT_WIDTH} data-testid="filter-status">
           <SelectValue placeholder="Статус" />
         </SelectTrigger>
         <SelectContent>
@@ -115,6 +122,60 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
               {MEDIA_STATUS_LABELS[s]}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      {/* Тип */}
+      <Select
+        value={currentFilters.type ?? 'all'}
+        onValueChange={(v) => updateUrl({ type: v })}
+      >
+        <SelectTrigger className={SELECT_WIDTH} data-testid="filter-type">
+          <SelectValue placeholder="Тип" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Все типы</SelectItem>
+          {(Object.keys(MEDIA_TYPE_LABELS) as MediaType[]).map((t) => (
+            <SelectItem key={t} value={t}>
+              {MEDIA_TYPE_LABELS[t]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Жанр — только жанры, реально встречающиеся в библиотеке */}
+      {genres.length > 0 && (
+        <Select
+          value={currentFilters.genre ?? 'all'}
+          onValueChange={(v) => updateUrl({ genre: v })}
+        >
+          <SelectTrigger className={SELECT_WIDTH} data-testid="filter-genre">
+            <SelectValue placeholder="Жанр" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все жанры</SelectItem>
+            {genres.map((g) => (
+              <SelectItem key={g} value={g}>
+                {capitalizeGenre(g)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Оценка */}
+      <Select
+        value={currentFilters.rating ?? 'all'}
+        onValueChange={(v) => updateUrl({ rating: v })}
+      >
+        <SelectTrigger className={SELECT_WIDTH} data-testid="filter-rating">
+          <SelectValue placeholder="Оценка" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Любая оценка</SelectItem>
+          <SelectItem value="8">8 и выше</SelectItem>
+          <SelectItem value="6">6 и выше</SelectItem>
+          <SelectItem value="none">Без оценки</SelectItem>
         </SelectContent>
       </Select>
 
@@ -128,7 +189,7 @@ export function FilterBar({ currentFilters }: FilterBarProps) {
           updateUrl({ sort: field, dir })
         }}
       >
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-[calc(50%-6px)] sm:w-[200px]">
           <SelectValue placeholder="Сортировка" />
         </SelectTrigger>
         <SelectContent>

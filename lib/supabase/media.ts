@@ -8,6 +8,7 @@ import type {
   SortOptions,
   TmdbDetails,
 } from '@/types'
+import { collectCanonicalGenres, genreVariants } from '@/lib/genres'
 
 type Client = SupabaseClient<Database>
 
@@ -29,7 +30,9 @@ export async function getMediaItems(
     query = query.eq('type', filters.type)
   }
   if (filters?.genre) {
-    query = query.contains('genres', JSON.stringify([filters.genre]))
+    // Жанр канонический: ищем все формы, в которых он лежит у фильмов и сериалов
+    const variants = genreVariants(filters.genre)
+    query = query.or(variants.map((v) => `genres.cs.${JSON.stringify([v])}`).join(','))
   }
   if (filters?.search) {
     const s = `%${filters.search}%`
@@ -41,6 +44,9 @@ export async function getMediaItems(
   if (filters?.maxRating != null) {
     query = query.lte('rating', filters.maxRating)
   }
+  if (filters?.unrated) {
+    query = query.is('rating', null)
+  }
 
   const field = sort?.field ?? 'release_year'
   const ascending = sort?.direction === 'asc'
@@ -49,6 +55,22 @@ export async function getMediaItems(
   const { data, error } = await query
   if (error) throw error
   return (data ?? []) as MediaItem[]
+}
+
+/** Канонические жанры всей библиотеки (без учёта фильтров) и общее число тайтлов — для FilterBar и шапки. */
+export async function getLibraryGenres(
+  client: Client,
+  userId: string
+): Promise<{ genres: string[]; total: number }> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('genres')
+    .eq('user_id', userId)
+
+  if (error) throw error
+  const rows = (data ?? []) as Pick<MediaItem, 'genres'>[]
+  const genres = collectCanonicalGenres(rows.flatMap((r) => r.genres ?? []))
+  return { genres, total: rows.length }
 }
 
 export async function getMediaItemById(

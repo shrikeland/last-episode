@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, TmdbSeason, Season, Episode, SeasonWithEpisodes } from '@/types'
+import type {
+  Database,
+  TmdbSeason,
+  Season,
+  Episode,
+  SeasonWithEpisodes,
+  WatchHistoryRow,
+} from '@/types'
 
 type Client = SupabaseClient<Database>
 
@@ -268,4 +275,52 @@ export async function markAllEpisodesUnwatched(
     .in('season_id', seasonIds)
 
   if (error) throw error
+}
+
+// Safety cap: a 30-day window never realistically exceeds this, even with bulk marks
+const WATCH_HISTORY_LIMIT = 1000
+
+type WatchHistoryQueryRow = {
+  id: string
+  episode_number: number
+  runtime_minutes: number | null
+  watched_at: string
+  seasons: {
+    season_number: number
+    media_items: { id: string; title: string; poster_url: string | null }
+  }
+}
+
+export async function getRecentWatchHistory(
+  client: Client,
+  userId: string,
+  days: number
+): Promise<WatchHistoryRow[]> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  // RLS already limits episodes to the owner, but the explicit user filter keeps
+  // this safe if it is ever called with the service client
+  const { data, error } = await client
+    .from('episodes')
+    .select(
+      'id, episode_number, runtime_minutes, watched_at, seasons!inner(season_number, media_items!inner(id, title, poster_url))'
+    )
+    .eq('is_watched', true)
+    .gte('watched_at', since)
+    .eq('seasons.media_items.user_id', userId)
+    .order('watched_at', { ascending: false })
+    .limit(WATCH_HISTORY_LIMIT)
+
+  if (error) throw error
+
+  return ((data ?? []) as unknown as WatchHistoryQueryRow[]).map((row) => ({
+    episode_id: row.id,
+    episode_number: row.episode_number,
+    runtime_minutes: row.runtime_minutes,
+    watched_at: row.watched_at,
+    season_number: row.seasons.season_number,
+    media_item_id: row.seasons.media_items.id,
+    title: row.seasons.media_items.title,
+    poster_url: row.seasons.media_items.poster_url,
+  }))
 }
