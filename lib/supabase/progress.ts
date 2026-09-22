@@ -192,6 +192,8 @@ export async function markSeasonWatched(
       watched_at: isWatched ? new Date().toISOString() : null,
     })
     .eq('season_id', seasonId)
+    // Только серии, которые меняют состояние: иначе уже отмеченные получат новый watched_at
+    .eq('is_watched', !isWatched)
 
   if (error) throw error
 }
@@ -272,6 +274,8 @@ export async function markAllEpisodesWatched(
       watched_at: new Date().toISOString(),
     })
     .in('season_id', seasonIds)
+    // Уже отмеченные не трогаем, чтобы сохранить их watched_at
+    .eq('is_watched', false)
 
   if (error) throw error
 }

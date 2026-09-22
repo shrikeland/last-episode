@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { toast } from 'sonner'
 import {
   Select,
@@ -30,6 +30,11 @@ interface StatusSelectProps {
 export function StatusSelect({ mediaItemId, currentStatus, mediaType }: StatusSelectProps) {
   const [status, setStatus] = useState<MediaStatus>(currentStatus)
   const [, startTransition] = useTransition()
+
+  // Статус может смениться извне (тост в SeasonAccordion + router.refresh)
+  useEffect(() => {
+    setStatus(currentStatus)
+  }, [currentStatus])
 
   function handleChange(value: string) {
     const newStatus = value as MediaStatus

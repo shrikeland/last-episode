@@ -149,6 +149,8 @@ export default async function MediaDetailPage({ params }: PageProps) {
             <SeasonAccordion
               seasons={seasons}
               mediaItemId={item.id}
+              mediaType={item.type}
+              status={item.status}
             />
           )}
         </div>
