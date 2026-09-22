@@ -1,10 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
+  ContinueItem,
   Database,
-  TmdbSeason,
-  Season,
   Episode,
+  MediaItem,
+  NextEpisode,
+  Season,
   SeasonWithEpisodes,
+  TmdbSeason,
   WatchHistoryRow,
 } from '@/types'
 
@@ -275,6 +278,95 @@ export async function markAllEpisodesUnwatched(
     .in('season_id', seasonIds)
 
   if (error) throw error
+}
+
+type NextEpisodeRow = Omit<NextEpisode, 'season_number'> & {
+  seasons: { season_number: number }
+}
+
+/**
+ * Первая непросмотренная серия тайтла по порядку сезон → серия.
+ * Один запрос с limit(1): выборка всех непросмотренных у длинного аниме упёрлась бы
+ * в лимит PostgREST в 1000 строк. Сортировка по полю to-one embed — `seasons(season_number)`.
+ */
+export async function getNextUnwatchedEpisode(
+  client: Client,
+  mediaItemId: string
+): Promise<NextEpisode | null> {
+  const { data, error } = await client
+    .from('episodes')
+    .select('id, episode_number, name, is_filler, seasons!inner(season_number, media_item_id)')
+    .eq('seasons.media_item_id', mediaItemId)
+    .eq('is_watched', false)
+    .order('seasons(season_number)')
+    .order('episode_number')
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  // Database без Relationships — тип embed-выборки не выводится, приводим вручную
+  const row = data as unknown as NextEpisodeRow
+  return {
+    id: row.id,
+    episode_number: row.episode_number,
+    name: row.name,
+    is_filler: row.is_filler,
+    season_number: row.seasons.season_number,
+  }
+}
+
+/** Время последней отмеченной серии тайтла. updated_at тайтла не годится: отметка серии его не трогает. */
+export async function getLastWatchedAt(
+  client: Client,
+  mediaItemId: string
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('episodes')
+    .select('watched_at, seasons!inner(media_item_id)')
+    .eq('seasons.media_item_id', mediaItemId)
+    .eq('is_watched', true)
+    .not('watched_at', 'is', null)
+    .order('watched_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return (data as unknown as { watched_at: string } | null)?.watched_at ?? null
+}
+
+/**
+ * Начатые тайтлы «Смотрю» с непросмотренными сериями, свежие первыми.
+ * По два запроса с limit(1) на тайтл, все параллельно — тайтлов «Смотрю» обычно единицы.
+ */
+export async function getContinueWatching(
+  client: Client,
+  userId: string
+): Promise<ContinueItem[]> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('id, title, poster_url, type')
+    .eq('user_id', userId)
+    .eq('status', 'watching')
+    .neq('type', 'movie')
+
+  if (error) throw error
+  const items = (data ?? []) as Pick<MediaItem, 'id' | 'title' | 'poster_url' | 'type'>[]
+
+  const entries = await Promise.all(
+    items.map(async (item) => {
+      const [next, lastWatchedAt] = await Promise.all([
+        getNextUnwatchedEpisode(client, item.id),
+        getLastWatchedAt(client, item.id),
+      ])
+      return next && lastWatchedAt ? { item, next, lastWatchedAt } : null
+    })
+  )
+
+  return entries
+    .filter((e): e is ContinueItem => e !== null)
+    .sort((a, b) => b.lastWatchedAt.localeCompare(a.lastWatchedAt))
 }
 
 // Safety cap: a 30-day window never realistically exceeds this, even with bulk marks

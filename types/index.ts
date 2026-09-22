@@ -78,6 +78,21 @@ export interface SeasonWithEpisodes extends Season {
   episodes: Episode[]
 }
 
+/** Первая непросмотренная серия тайтла — для блока «Продолжить». */
+export interface NextEpisode {
+  id: string
+  episode_number: number
+  name: string
+  is_filler: boolean
+  season_number: number
+}
+
+export interface ContinueItem {
+  item: Pick<MediaItem, 'id' | 'title' | 'poster_url' | 'type'>
+  next: NextEpisode
+  lastWatchedAt: string
+}
+
 // TMDB API shapes
 export interface TmdbSearchResult {
   tmdb_id: number

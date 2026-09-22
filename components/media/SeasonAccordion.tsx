@@ -12,6 +12,7 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion'
 import { Button } from '@/components/ui/button'
 import { EpisodeRow } from './EpisodeRow'
 import { toggleEpisode, markSeason, markAllTitle } from '@/app/actions/progress'
+import { withRetry } from '@/lib/utils'
 import type { SeasonWithEpisodes, Episode } from '@/types'
 
 interface SeasonAccordionProps {
@@ -29,16 +30,6 @@ function buildEpisodeMap(seasons: SeasonWithEpisodes[]): EpisodeMap {
     }
   }
   return map
-}
-
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn()
-  } catch {
-    // retry once after a short delay to handle transient network errors
-    await new Promise<void>(resolve => setTimeout(resolve, 100))
-    return await fn()
-  }
 }
 
 export function SeasonAccordion({ seasons, mediaItemId }: SeasonAccordionProps) {
