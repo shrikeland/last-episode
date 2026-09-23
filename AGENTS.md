@@ -110,7 +110,7 @@ app/
   api/
     recommendations/generate/  # POST → Groq SSE stream → enriched card JSON
     recommendations/profile/   # taste profile generation
-    auth/callback/             # Supabase OAuth callback
+  auth/callback/    # email-confirmation link → /login?confirmed=1 (no session exchange)
 
 lib/
   supabase/
@@ -148,9 +148,13 @@ supabase/migrations/  # source of truth for DB schema — always add here, never
 ```
 
 ### Auth Flow
-There is **no `middleware.ts`**. Auth protection is enforced at the layout level:
-- `app/(app)/layout.tsx` calls `getServerUser()` and `redirect('/login')` if unauthenticated
-- `app/(auth)/` pages are unprotected (no layout guard)
+Two layers: `proxy.ts` (Next.js 16 name for middleware — build lists it as `ƒ Proxy (Middleware)`) plus the layout guard.
+- `proxy.ts` runs on every path except static assets (incl. `/api/*`): refreshes the Supabase session, then
+  - signed-in user on an auth page (`/login`, `/register`, `/auth/*`) → redirect to `/library`
+  - signed-out user on any other path → redirect to `/login`
+- `proxy.ts` builds its own client from request cookies and calls `supabase.auth.getUser()` directly — an exception to the `getServerUser()` rule, like API routes
+- `app/(app)/layout.tsx` still calls `getServerUser()` and `redirect('/login')` if unauthenticated — second layer, keep it
+- `app/auth/callback/route.ts` handles email-confirmation links. It does **not** exchange `?code=` for a session (PKCE only works in the browser that signed up, and people open the email on their phone): with `code` → `/login?confirmed=1`, without → `/login?error=confirmation_failed`; the login page shows a toast. Users sign in themselves after confirming
 
 ### Server Actions Pattern
 All mutations go through `app/actions/*.ts` with `'use server'` at the top of each file.
