@@ -4,7 +4,7 @@ slug: watch-timeline
 lens: мёртвые данные
 value: medium
 cost: M
-status: planned
+status: done
 created: 2026-07-27
 ---
 

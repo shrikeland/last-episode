@@ -1,10 +1,12 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { getMediaItems, getEpisodeProgressMap, getLibraryGenres } from '@/lib/supabase/media'
+import { getContinueWatching } from '@/lib/supabase/progress'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
-import { MEDIA_TYPE_LABELS } from '@/types'
-import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField, SortDirection } from '@/types'
+import { ContinueWatching } from '@/components/library/ContinueWatching'
+import { MEDIA_TYPE_LABELS, SORT_FIELDS } from '@/types'
+import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField } from '@/types'
 
 interface SearchParams {
   search?: string
@@ -48,18 +50,11 @@ export default async function LibraryPage({
     ...parseRating(params.rating),
   }
 
+  // Значения из URL уходят в .order() — принимаем только известные поля
   const sort: SortOptions = {
-    field: (params.sort as SortField) || 'release_year',
-    direction: (params.dir as SortDirection) || 'desc',
+    field: SORT_FIELDS.includes(params.sort as SortField) ? (params.sort as SortField) : 'created_at',
+    direction: params.dir === 'asc' ? 'asc' : 'desc',
   }
-
-  const [items, { genres, total }] = await Promise.all([
-    getMediaItems(supabase, user.id, filters, sort),
-    getLibraryGenres(supabase, user.id),
-  ])
-
-  const nonMovieIds = items.filter((i) => i.type !== 'movie').map((i) => i.id)
-  const progressMap = await getEpisodeProgressMap(supabase, nonMovieIds)
 
   const hasFilters = !!(
     params.search ||
@@ -69,6 +64,17 @@ export default async function LibraryPage({
     params.rating
   )
 
+  // Блок «Продолжить» только без фильтров: при поиске он мешает сверять «Найдено N» с выдачей
+  const [items, { genres, total }, continueItems] = await Promise.all([
+    getMediaItems(supabase, user.id, filters, sort),
+    getLibraryGenres(supabase, user.id),
+    hasFilters ? Promise.resolve([]) : getContinueWatching(supabase, user.id),
+  ])
+
+  const nonMovieIds = new Set(items.filter((i) => i.type !== 'movie').map((i) => i.id))
+  for (const c of continueItems) nonMovieIds.add(c.item.id)
+  const progressMap = await getEpisodeProgressMap(supabase, [...nonMovieIds])
+
   return (
     <div className="space-y-6">
       <div>
@@ -77,8 +83,14 @@ export default async function LibraryPage({
         </div>
         <p className="text-sm text-muted-foreground">{total} тайтлов в коллекции</p>
       </div>
+      {continueItems.length > 0 && (
+        <ContinueWatching items={continueItems} progressMap={progressMap} />
+      )}
       <div className="space-y-3">
-        <FilterBar currentFilters={params} genres={genres} />
+        <FilterBar
+          currentFilters={{ ...params, sort: sort.field, dir: sort.direction }}
+          genres={genres}
+        />
         {hasFilters && (
           <p className="text-sm text-muted-foreground" data-testid="library-found-count">
             Найдено: {items.length}

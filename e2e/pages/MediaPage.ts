@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test'
+import { type Page, type Locator, expect } from '@playwright/test'
 
 export class MediaPage {
   constructor(private readonly page: Page) {}
@@ -15,9 +15,11 @@ export class MediaPage {
   }
 
   async openFirstSeasonAccordion() {
-    // Season accordion headers are buttons inside season-accordion
+    // Только Radix-триггер сезона (у него aria-expanded): первая кнопка в season-accordion —
+    // это «Отметить всё / Снять отметку» в шапке прогресса, клик по ней меняет данные
     const accordion = this.page.getByTestId('season-accordion')
-    const trigger = accordion.getByRole('button').first()
+    const trigger = accordion.locator('button[aria-expanded]').first()
+    if ((await trigger.getAttribute('aria-expanded')) === 'true') return
     await trigger.click()
     await this.page.waitForTimeout(300)
   }
@@ -42,6 +44,32 @@ export class MediaPage {
     // Blur to trigger save
     await this.page.keyboard.press('Escape')
     await this.page.waitForTimeout(500)
+  }
+
+  episodeCheckboxes() {
+    return this.page.locator('[data-testid^="episode-checkbox-"]')
+  }
+
+  /** Строка серии целиком: в ней видна дата просмотра (watched_at). */
+  episodeRow(index: number) {
+    return this.episodeCheckboxes().nth(index).locator('xpath=..')
+  }
+
+  /** Клик, который дергает server action: ждём POST, чтобы сохранение не оборвалось навигацией. */
+  async clickAndSave(target: Locator) {
+    await Promise.all([
+      this.page.waitForResponse((res) => res.request().method() === 'POST', { timeout: 15000 }),
+      target.click(),
+    ])
+  }
+
+  /** Тост «Все серии отмечены» из SeasonAccordion. */
+  get completeOfferToast() {
+    return this.page.locator('[data-sonner-toast]').filter({ hasText: 'Все серии отмечены' })
+  }
+
+  get markAllTitleButton() {
+    return this.page.getByTestId('mark-all-title-button')
   }
 
   get statusSelect() {

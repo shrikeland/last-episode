@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import * as ProgressService from '@/lib/supabase/progress'
 import * as MediaService from '@/lib/supabase/media'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
-import type { MediaStatus, MediaType } from '@/types'
+import type { MediaStatus, MediaType, NextEpisode } from '@/types'
 
 type UpdateStatusResult =
   | { success: true }
@@ -16,6 +16,19 @@ export async function toggleEpisode(
 ): Promise<void> {
   const supabase = await createServerClient()
   await ProgressService.toggleEpisodeWatched(supabase, episodeId, isWatched)
+  revalidatePath('/library')
+}
+
+/** Отметка из блока «Продолжить»: отмечает серию и отдаёт следующую, чтобы карточка обновилась на месте. */
+export async function watchNextEpisode(
+  mediaItemId: string,
+  episodeId: string
+): Promise<NextEpisode | null> {
+  const supabase = await createServerClient()
+  await ProgressService.toggleEpisodeWatched(supabase, episodeId, true)
+  const next = await ProgressService.getNextUnwatchedEpisode(supabase, mediaItemId)
+  revalidatePath('/library')
+  return next
 }
 
 export async function markSeason(
@@ -24,6 +37,17 @@ export async function markSeason(
 ): Promise<void> {
   const supabase = await createServerClient()
   await ProgressService.markSeasonWatched(supabase, seasonId, isWatched)
+  revalidatePath('/library')
+}
+
+/** «Отметить по эту серию»: сезон и тайтл определяются по episodeId на сервере, а не с клиента. */
+export async function markUpToEpisode(
+  episodeId: string,
+  includePreviousSeasons: boolean
+): Promise<void> {
+  const supabase = await createServerClient()
+  await ProgressService.markEpisodesUpTo(supabase, episodeId, includePreviousSeasons)
+  revalidatePath('/library')
 }
 
 export async function markAllTitle(
@@ -36,6 +60,7 @@ export async function markAllTitle(
   } else {
     await ProgressService.markAllEpisodesUnwatched(supabase, mediaItemId)
   }
+  revalidatePath('/library')
 }
 
 export async function updateStatus(

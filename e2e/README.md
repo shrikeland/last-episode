@@ -64,4 +64,6 @@ e2e/
 
 Tests use a pre-authenticated session via `storageState`. The first run creates
 `support/auth.storage.json` by logging in through the UI — subsequent runs reuse it.
-Delete `auth.storage.json` to force a fresh login.
+Before each test the fixture checks that the stored session is still accepted
+(`/library` doesn't redirect to `/login`) and logs in again if it was revoked —
+e.g. by the logout test (TC-AUTH-010). No need to delete the file by hand.

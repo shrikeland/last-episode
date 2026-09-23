@@ -1,20 +1,38 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
+  ContinueItem,
   Database,
-  TmdbSeason,
-  Season,
   Episode,
+  MediaItem,
+  NextEpisode,
+  Season,
   SeasonWithEpisodes,
+  TmdbSeason,
   WatchHistoryRow,
 } from '@/types'
 
 type Client = SupabaseClient<Database>
+
+async function isCompletedMediaItem(client: Client, mediaItemId: string): Promise<boolean> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('status')
+    .eq('id', mediaItemId)
+    .single()
+
+  if (error) throw error
+  return (data as { status: string } | null)?.status === 'completed'
+}
 
 export async function syncSeasonsAndEpisodes(
   client: Client,
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  // watched_at stays null: the real watch date is unknown, and a sync-time stamp
+  // would pile every episode onto one day in the /stats watch timeline.
+  const markNewEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
+
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
       .from('seasons')
@@ -64,7 +82,8 @@ export async function syncSeasonsAndEpisodes(
         episode_number: episode.episode_number,
         name: episode.name,
         runtime_minutes: episode.runtime_minutes,
-        is_watched: false,
+        is_watched: markNewEpisodesWatched,
+        watched_at: null,
       }))
 
     if (newEpisodeRows.length > 0) {
@@ -98,6 +117,9 @@ export async function createSeasonsAndEpisodes(
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  // watched_at stays null — see syncSeasonsAndEpisodes
+  const markEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
+
   for (const season of seasons) {
     const { data: seasonData, error: seasonError } = await client
       .from('seasons')
@@ -121,7 +143,8 @@ export async function createSeasonsAndEpisodes(
       episode_number: ep.episode_number,
       name: ep.name,
       runtime_minutes: ep.runtime_minutes,
-      is_watched: false,
+      is_watched: markEpisodesWatched,
+      watched_at: null,
     }))
 
     await client.from('episodes').insert(episodeRows)
@@ -189,8 +212,66 @@ export async function markSeasonWatched(
       watched_at: isWatched ? new Date().toISOString() : null,
     })
     .eq('season_id', seasonId)
+    // Только серии, которые меняют состояние: иначе уже отмеченные получат новый watched_at
+    .eq('is_watched', !isWatched)
 
   if (error) throw error
+}
+
+/**
+ * Отмечает серии сезона до указанной включительно и, опционально, все серии предыдущих сезонов.
+ * Уже отмеченные серии не трогаются, чтобы не перезаписать их watched_at.
+ * Один watched_at на все апдейты — лента просмотра склеивает массовую отметку по нему.
+ */
+export async function markEpisodesUpTo(
+  client: Client,
+  episodeId: string,
+  includePreviousSeasons: boolean
+): Promise<void> {
+  const { data: episode, error: episodeError } = await client
+    .from('episodes')
+    .select('episode_number, season_id, seasons!inner(season_number, media_item_id)')
+    .eq('id', episodeId)
+    .single()
+
+  if (episodeError) throw episodeError
+
+  const { episode_number, season_id, seasons: season } = episode as unknown as {
+    episode_number: number
+    season_id: string
+    seasons: { season_number: number; media_item_id: string }
+  }
+  const update = { is_watched: true, watched_at: new Date().toISOString() }
+
+  const { error } = await client
+    .from('episodes')
+    .update(update)
+    .eq('season_id', season_id)
+    .lte('episode_number', episode_number)
+    .eq('is_watched', false)
+
+  if (error) throw error
+  if (!includePreviousSeasons) return
+
+  const { data: previousSeasons, error: seasonsError } = await client
+    .from('seasons')
+    .select('id')
+    .eq('media_item_id', season.media_item_id)
+    .lt('season_number', season.season_number)
+
+  if (seasonsError) throw seasonsError
+  if (!previousSeasons || previousSeasons.length === 0) return
+
+  const { error: previousError } = await client
+    .from('episodes')
+    .update(update)
+    .in(
+      'season_id',
+      (previousSeasons as { id: string }[]).map((s) => s.id)
+    )
+    .eq('is_watched', false)
+
+  if (previousError) throw previousError
 }
 
 export async function markAllEpisodesWatched(
@@ -213,6 +294,8 @@ export async function markAllEpisodesWatched(
       watched_at: new Date().toISOString(),
     })
     .in('season_id', seasonIds)
+    // Уже отмеченные не трогаем, чтобы сохранить их watched_at
+    .eq('is_watched', false)
 
   if (error) throw error
 }
@@ -275,6 +358,95 @@ export async function markAllEpisodesUnwatched(
     .in('season_id', seasonIds)
 
   if (error) throw error
+}
+
+type NextEpisodeRow = Omit<NextEpisode, 'season_number'> & {
+  seasons: { season_number: number }
+}
+
+/**
+ * Первая непросмотренная серия тайтла по порядку сезон → серия.
+ * Один запрос с limit(1): выборка всех непросмотренных у длинного аниме упёрлась бы
+ * в лимит PostgREST в 1000 строк. Сортировка по полю to-one embed — `seasons(season_number)`.
+ */
+export async function getNextUnwatchedEpisode(
+  client: Client,
+  mediaItemId: string
+): Promise<NextEpisode | null> {
+  const { data, error } = await client
+    .from('episodes')
+    .select('id, episode_number, name, is_filler, seasons!inner(season_number, media_item_id)')
+    .eq('seasons.media_item_id', mediaItemId)
+    .eq('is_watched', false)
+    .order('seasons(season_number)')
+    .order('episode_number')
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  // Database без Relationships — тип embed-выборки не выводится, приводим вручную
+  const row = data as unknown as NextEpisodeRow
+  return {
+    id: row.id,
+    episode_number: row.episode_number,
+    name: row.name,
+    is_filler: row.is_filler,
+    season_number: row.seasons.season_number,
+  }
+}
+
+/** Время последней отмеченной серии тайтла. updated_at тайтла не годится: отметка серии его не трогает. */
+export async function getLastWatchedAt(
+  client: Client,
+  mediaItemId: string
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('episodes')
+    .select('watched_at, seasons!inner(media_item_id)')
+    .eq('seasons.media_item_id', mediaItemId)
+    .eq('is_watched', true)
+    .not('watched_at', 'is', null)
+    .order('watched_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return (data as unknown as { watched_at: string } | null)?.watched_at ?? null
+}
+
+/**
+ * Начатые тайтлы «Смотрю» с непросмотренными сериями, свежие первыми.
+ * По два запроса с limit(1) на тайтл, все параллельно — тайтлов «Смотрю» обычно единицы.
+ */
+export async function getContinueWatching(
+  client: Client,
+  userId: string
+): Promise<ContinueItem[]> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('id, title, poster_url, type')
+    .eq('user_id', userId)
+    .eq('status', 'watching')
+    .neq('type', 'movie')
+
+  if (error) throw error
+  const items = (data ?? []) as Pick<MediaItem, 'id' | 'title' | 'poster_url' | 'type'>[]
+
+  const entries = await Promise.all(
+    items.map(async (item) => {
+      const [next, lastWatchedAt] = await Promise.all([
+        getNextUnwatchedEpisode(client, item.id),
+        getLastWatchedAt(client, item.id),
+      ])
+      return next && lastWatchedAt ? { item, next, lastWatchedAt } : null
+    })
+  )
+
+  return entries
+    .filter((e): e is ContinueItem => e !== null)
+    .sort((a, b) => b.lastWatchedAt.localeCompare(a.lastWatchedAt))
 }
 
 // Safety cap: a 30-day window never realistically exceeds this, even with bulk marks

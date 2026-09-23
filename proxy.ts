@@ -35,7 +35,6 @@ export async function proxy(request: NextRequest) {
   const isAuthPage =
     pathname === '/login' ||
     pathname === '/register' ||
-    pathname === '/email-confirmed' ||
     pathname.startsWith('/auth/')
 
   // Авторизованный на странице входа → в библиотеку
