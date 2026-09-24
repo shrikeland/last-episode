@@ -5,7 +5,8 @@ import * as MediaService from '@/lib/supabase/media'
 import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
-import type { CreateMediaItemOptions, TmdbSearchResult, MediaType, TmdbSeason } from '@/types'
+import { mediaTitleKey, tmdbTitleKey } from '@/lib/tmdb/kind'
+import type { CreateMediaItemOptions, TmdbSearchResult, MediaItem, MediaType, TmdbSeason } from '@/types'
 
 const VALID_STATUSES = new Set(['watching', 'completed', 'planned', 'dropped', 'on_hold'])
 
@@ -33,20 +34,30 @@ function normalizeOptions(options?: CreateMediaItemOptions): CreateMediaItemOpti
   }
 }
 
-export async function getLibraryTmdbIds(tmdbIds: number[]): Promise<number[]> {
-  if (!tmdbIds.length) return []
+/**
+ * Какие из переданных тайтлов уже есть в библиотеке текущего пользователя.
+ * Сравнение по паре (kind, tmdb_id): фильм 1399 и сериал 1399 — разные тайтлы.
+ * Возвращает ключи tmdbTitleKey ('movie:1399').
+ */
+export async function getLibraryTitleKeys(
+  titles: { tmdbId: number; type: string }[]
+): Promise<string[]> {
+  if (!titles.length) return []
   const user = await getServerUser()
   if (!user) return []
 
   const supabase = await createServerClient()
 
+  const requested = new Set(titles.map((t) => mediaTitleKey(t.type, t.tmdbId)))
   const { data } = await supabase
     .from('media_items')
-    .select('tmdb_id')
+    .select('tmdb_id, tmdb_kind')
     .eq('user_id', user.id)
-    .in('tmdb_id', tmdbIds)
+    .in('tmdb_id', [...new Set(titles.map((t) => t.tmdbId))])
 
-  return (data ?? []).map((row) => row.tmdb_id as number)
+  return ((data ?? []) as Pick<MediaItem, 'tmdb_id' | 'tmdb_kind'>[])
+    .map((row) => tmdbTitleKey(row.tmdb_kind, row.tmdb_id))
+    .filter((key) => requested.has(key))
 }
 
 export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {

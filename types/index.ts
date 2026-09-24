@@ -1,5 +1,8 @@
 export type MediaType = 'movie' | 'animation' | 'tv' | 'anime'
 
+/** TMDB-пространство id: фильмы и сериалы нумеруются независимо (см. lib/tmdb/kind.ts). */
+export type TmdbKind = 'movie' | 'tv'
+
 export type MediaStatus =
   | 'watching'
   | 'completed'
@@ -33,6 +36,8 @@ export interface MediaItem {
   id: string
   user_id: string
   tmdb_id: number
+  /** Генерируется БД из type — не записывается приложением. */
+  tmdb_kind: TmdbKind
   type: MediaType
   title: string
   original_title: string
@@ -208,8 +213,8 @@ export type Database = {
     Tables: {
       media_items: {
         Row: MediaItem
-        Insert: Omit<MediaItem, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<MediaItem, 'id' | 'user_id' | 'created_at'>>
+        Insert: Omit<MediaItem, 'id' | 'tmdb_kind' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<MediaItem, 'id' | 'user_id' | 'tmdb_kind' | 'created_at'>>
       }
       seasons: {
         Row: Season
@@ -232,8 +237,8 @@ export type Database = {
         Update: { summary?: string; updated_at?: string }
       }
       recommendation_history: {
-        Row: { id: string; user_id: string; tmdb_id: number; title: string; created_at: string }
-        Insert: { user_id: string; tmdb_id: number; title: string; created_at?: string }
+        Row: { id: string; user_id: string; tmdb_id: number; tmdb_kind: TmdbKind | null; title: string; created_at: string }
+        Insert: { user_id: string; tmdb_id: number; tmdb_kind: TmdbKind; title: string; created_at?: string }
         Update: never
       }
     }

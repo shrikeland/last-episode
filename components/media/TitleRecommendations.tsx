@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddToLibraryDialog, type AddToLibraryState } from '@/components/library/AddToLibraryDialog'
 import { addMediaItem } from '@/app/actions/tmdb'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import { MEDIA_TYPE_LABELS, type CreateMediaItemOptions, type MediaStatus, type MediaType } from '@/types'
 
 const ERROR_MESSAGES = {
@@ -36,7 +37,8 @@ export interface TitleRecommendationItem {
 
 interface TitleRecommendationsProps {
   items: TitleRecommendationItem[]
-  initialAddedIds: number[]
+  /** Ключи mediaTitleKey тайтлов, которые уже в библиотеке. */
+  initialAddedKeys: string[]
 }
 
 function TitleRecommendationCard({
@@ -147,10 +149,10 @@ function TitleRecommendationCard({
   )
 }
 
-export function TitleRecommendations({ items, initialAddedIds }: TitleRecommendationsProps) {
+export function TitleRecommendations({ items, initialAddedKeys }: TitleRecommendationsProps) {
   if (items.length === 0) return null
 
-  const addedIds = new Set(initialAddedIds)
+  const addedKeys = new Set(initialAddedKeys)
 
   return (
     <section className="space-y-3" aria-labelledby="title-recommendations-heading">
@@ -165,13 +167,16 @@ export function TitleRecommendations({ items, initialAddedIds }: TitleRecommenda
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {items.map((item) => (
-          <TitleRecommendationCard
-            key={item.tmdbId}
-            item={item}
-            initialAdded={addedIds.has(item.tmdbId)}
-          />
-        ))}
+        {items.map((item) => {
+          const titleKey = mediaTitleKey(item.type, item.tmdbId)
+          return (
+            <TitleRecommendationCard
+              key={titleKey}
+              item={item}
+              initialAdded={addedKeys.has(titleKey)}
+            />
+          )
+        })}
       </div>
     </section>
   )

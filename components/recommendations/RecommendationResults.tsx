@@ -3,6 +3,7 @@
 import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RecommendationCard } from './RecommendationCard'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import type { RecommendationCardData } from '@/types/recommendations'
 
 interface Props {
@@ -10,7 +11,8 @@ interface Props {
   isStreamingIntro: boolean
   isLoadingCards: boolean
   cards: RecommendationCardData[]
-  libraryIds: Set<number>
+  /** Ключи mediaTitleKey тайтлов, которые уже в библиотеке. */
+  libraryKeys: Set<string>
   onReset: () => void
 }
 
@@ -19,7 +21,7 @@ export function RecommendationResults({
   isStreamingIntro,
   isLoadingCards,
   cards,
-  libraryIds,
+  libraryKeys,
   onReset,
 }: Props) {
   const showIntro = introText.length > 0
@@ -71,7 +73,7 @@ export function RecommendationResults({
             <RecommendationCard
               key={`${card.title}-${idx}`}
               {...card}
-              initialAdded={card.tmdbId ? libraryIds.has(card.tmdbId) : false}
+              initialAdded={card.tmdbId ? libraryKeys.has(mediaTitleKey(card.type, card.tmdbId)) : false}
             />
           ))}
         </div>

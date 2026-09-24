@@ -12,6 +12,7 @@ import { SeasonAccordion } from '@/components/media/SeasonAccordion'
 import { CastList } from '@/components/media/CastList'
 import { TitleRecommendations, type TitleRecommendationItem } from '@/components/media/TitleRecommendations'
 import { buildPosterUrl, getRelatedTitles, getTopCast, getTVDetails } from '@/lib/tmdb/tmdb.service'
+import { getLibraryTitleKeys } from '@/app/actions/tmdb'
 import { MEDIA_TYPE_LABELS } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -52,15 +53,9 @@ export default async function MediaDetailPage({ params }: PageProps) {
   await syncPromise
 
   const seasons = isSeries ? await getSeasonsWithEpisodes(supabase, id) : []
-  const relatedIds = related.map((relatedItem) => relatedItem.tmdb_id)
-  const { data: existingRows } = relatedIds.length > 0
-    ? await supabase
-        .from('media_items')
-        .select('tmdb_id')
-        .eq('user_id', user.id)
-        .in('tmdb_id', relatedIds)
-    : { data: [] }
-  const existingRelatedIds = ((existingRows ?? []) as { tmdb_id: number }[]).map((row) => row.tmdb_id)
+  const existingRelatedKeys = await getLibraryTitleKeys(
+    related.map((relatedItem) => ({ tmdbId: relatedItem.tmdb_id, type: relatedItem.type }))
+  )
   const recommendationItems: TitleRecommendationItem[] = related.map((relatedItem) => ({
     tmdbId: relatedItem.tmdb_id,
     title: relatedItem.title,
@@ -141,7 +136,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
 
           <TitleRecommendations
             items={recommendationItems}
-            initialAddedIds={existingRelatedIds}
+            initialAddedKeys={existingRelatedKeys}
           />
 
           {/* Progress (tv/anime only) */}

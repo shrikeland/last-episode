@@ -5,7 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getMediaItemById } from '@/lib/supabase/media'
 import { getSeasonsWithEpisodes } from '@/lib/supabase/progress'
 import { getTopCast } from '@/lib/tmdb/tmdb.service'
-import { getLibraryTmdbIds } from '@/app/actions/tmdb'
+import { getLibraryTitleKeys } from '@/app/actions/tmdb'
 import { Badge } from '@/components/ui/badge'
 import { CastList } from '@/components/media/CastList'
 import { MediaPoster } from '@/components/media/MediaPoster'
@@ -137,12 +137,12 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
   if (!item) notFound()
 
   const tmdbMediaType = item.type === 'movie' || item.type === 'animation' ? 'movie' : 'tv'
-  const [seasons, cast, initialAddedTmdbIds] = await Promise.all([
+  const [seasons, cast, initialAddedKeys] = await Promise.all([
     item.type !== 'movie' && item.type !== 'animation'
       ? getSeasonsWithEpisodes(service, item.id)
       : Promise.resolve([]),
     getTopCast(item.tmdb_id, tmdbMediaType),
-    getLibraryTmdbIds([item.tmdb_id]),
+    getLibraryTitleKeys([{ tmdbId: item.tmdb_id, type: item.type }]),
   ])
 
   return (
@@ -200,7 +200,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
             </Badge>
             <ProfileAddToLibraryControl
               item={item}
-              initialAdded={initialAddedTmdbIds.includes(item.tmdb_id)}
+              initialAdded={initialAddedKeys.length > 0}
               className="h-7 gap-1.5 px-2.5 text-xs"
             />
           </div>

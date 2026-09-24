@@ -2,7 +2,8 @@ import { createServerClient } from '@/lib/supabase/server'
 import { getMediaItems } from '@/lib/supabase/media'
 import { generate, generateStream, parseSseDelta, parseSseUsage } from '@/lib/groq/groq.service'
 import { search, buildPosterUrl } from '@/lib/tmdb/tmdb.service'
-import type { TmdbSearchResult } from '@/types'
+import { mediaTitleKey, tmdbKindOf, tmdbTitleKey } from '@/lib/tmdb/kind'
+import type { TmdbKind, TmdbSearchResult } from '@/types'
 import type { RecommendationCardData, QuestionnaireAnswers, ContentType } from '@/types/recommendations'
 
 // Markers used to communicate phases to the client
@@ -205,24 +206,42 @@ async function loadRecentRecommendations(supabase: any, userId: string, days = 4
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
   const { data } = await supabase
     .from('recommendation_history')
-    .select('tmdb_id, title')
+    .select('tmdb_id, tmdb_kind, title')
     .eq('user_id', userId)
     .gte('created_at', since)
     .order('created_at', { ascending: false })
     .limit(100)
 
-  if (!data || data.length === 0) return { ids: new Set<number>(), titles: [] as string[] }
-  return {
-    ids: new Set<number>(data.map((r: { tmdb_id: number }) => r.tmdb_id)),
-    titles: data.map((r: { title: string }) => r.title) as string[],
+  const recent: RecentRecommendations = { keys: new Set(), legacyIds: new Set() }
+  const rows = (data ?? []) as { tmdb_id: number; tmdb_kind: TmdbKind | null; title: string }[]
+  for (const r of rows) {
+    if (r.tmdb_kind) recent.keys.add(tmdbTitleKey(r.tmdb_kind, r.tmdb_id))
+    else recent.legacyIds.add(r.tmdb_id)
   }
+  return { recent, titles: rows.map((r) => r.title) }
+}
+
+// Anti-repeat set. Rows saved before recommendation_history.tmdb_kind existed
+// have no kind, so their id blocks both the movie and the tv title (conservative).
+interface RecentRecommendations {
+  keys: Set<string>
+  legacyIds: Set<number>
+}
+
+function isRecentlyRecommended(recent: RecentRecommendations, match: TmdbSearchResult): boolean {
+  return recent.keys.has(mediaTitleKey(match.type, match.tmdb_id)) || recent.legacyIds.has(match.tmdb_id)
+}
+
+/** Ключ (kind, tmdb_id) карточки; null — карточка без TMDB-матча. */
+function cardTitleKey(card: RecommendationCardData): string | null {
+  return card.tmdbId ? mediaTitleKey(card.type, card.tmdbId) : null
 }
 
  
 async function saveRecommendationHistory(supabase: any, userId: string, cards: RecommendationCardData[]) {
   const rows = cards
     .filter((c) => c.tmdbId !== null)
-    .map((c) => ({ user_id: userId, tmdb_id: c.tmdbId!, title: c.title }))
+    .map((c) => ({ user_id: userId, tmdb_id: c.tmdbId!, tmdb_kind: tmdbKindOf(c.type), title: c.title }))
   if (rows.length === 0) return
   await supabase.from('recommendation_history').insert(rows)
 }
@@ -232,9 +251,9 @@ async function enrichWithTmdb(
   contentType: ContentType,
   mood: string,
   exclusions: string[],
-  recentTmdbIds: Set<number>
+  recent: RecentRecommendations
 ): Promise<RecommendationCardData[]> {
-  const seen = new Set<number>()
+  const seen = new Set<string>()
 
   const results = await Promise.all(
     items.map(async (item) => {
@@ -255,12 +274,13 @@ async function enrichWithTmdb(
         const match = pickBestSearchResult(qualityResults, cleanTitle, item.year)
         if (!match) return null
 
-        // Deduplicate by TMDB ID within this batch
-        if (seen.has(match.tmdb_id)) return null
-        seen.add(match.tmdb_id)
+        // Deduplicate by (kind, TMDB ID) within this batch
+        const matchKey = mediaTitleKey(match.type, match.tmdb_id)
+        if (seen.has(matchKey)) return null
+        seen.add(matchKey)
 
         // Anti-repeat: skip recently recommended titles
-        if (recentTmdbIds.has(match.tmdb_id)) return null
+        if (isRecentlyRecommended(recent, match)) return null
 
         // Strict content type filter (TMDB normalizeType is ground truth)
         if (!matchesRequestedType(contentType, match.type)) return null
@@ -357,13 +377,17 @@ export async function POST(request: Request): Promise<Response> {
       items.map((i) => ({ title: i.title, status: i.status, rating: i.rating })),
       questionnaire.familiarity
     )
-    // Hard server-side exclusion set: for new_only, filter enriched cards by tmdb_id
-    const libraryTmdbIds = questionnaire.familiarity === 'new_only'
-      ? new Set(items.map((i) => i.tmdb_id).filter(Boolean))
+    // Hard server-side exclusion set: for new_only, filter enriched cards by (kind, tmdb_id)
+    const libraryKeys = questionnaire.familiarity === 'new_only'
+      ? new Set(items.map((i) => tmdbTitleKey(i.tmdb_kind, i.tmdb_id)))
       : null
+    const isInLibrary = (c: RecommendationCardData) => {
+      const key = cardTitleKey(c)
+      return key !== null && libraryKeys !== null && libraryKeys.has(key)
+    }
 
     // Load recommendation history for anti-repeat filtering
-    const { ids: recentTmdbIds, titles: recentTitles } =
+    const { recent: recentRecommendations, titles: recentTitles } =
       await loadRecentRecommendations(supabase, user.id)
 
     const userPrompt = buildUserPrompt(profileRow.summary, questionnaire, libraryContext, recentTitles)
@@ -491,12 +515,10 @@ export async function POST(request: Request): Promise<Response> {
               questionnaire.contentType,
               questionnaire.mood,
               questionnaire.exclusions,
-              recentTmdbIds
+              recentRecommendations
             )
             // Hard exclusion of library items LLM might have ignored
-            if (libraryTmdbIds && libraryTmdbIds.size > 0) {
-              cards = cards.filter((c) => !c.tmdbId || !libraryTmdbIds.has(c.tmdbId))
-            }
+            cards = cards.filter((c) => !isInLibrary(c))
 
             // Retry pass: if filters left too few cards, ask LLM for another batch
             if (cards.length < 3) {
@@ -513,14 +535,13 @@ export async function POST(request: Request): Promise<Response> {
                     questionnaire.contentType,
                     questionnaire.mood,
                     questionnaire.exclusions,
-                    recentTmdbIds
+                    recentRecommendations
                   )
-                  const filteredMore = libraryTmdbIds?.size
-                    ? moreCards.filter((c) => !c.tmdbId || !libraryTmdbIds.has(c.tmdbId))
-                    : moreCards
-                  const seenIds = new Set(cards.map((c) => c.tmdbId).filter(Boolean))
-                  for (const c of filteredMore) {
-                    if (!c.tmdbId || !seenIds.has(c.tmdbId)) cards.push(c)
+                  const seenKeys = new Set(cards.map(cardTitleKey).filter((key) => key !== null))
+                  for (const c of moreCards) {
+                    if (isInLibrary(c)) continue
+                    const key = cardTitleKey(c)
+                    if (key === null || !seenKeys.has(key)) cards.push(c)
                   }
                 }
               } catch (retryErr) {

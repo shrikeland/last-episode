@@ -4,14 +4,15 @@ import { useState, useRef } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Loader2, X } from 'lucide-react'
-import { searchTmdb, getLibraryTmdbIds } from '@/app/actions/tmdb'
+import { searchTmdb, getLibraryTitleKeys } from '@/app/actions/tmdb'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import { TmdbResultCard } from './TmdbResultCard'
 import type { TmdbSearchResult } from '@/types'
 
 export function SearchInput() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbSearchResult[]>([])
-  const [libraryIds, setLibraryIds] = useState<Set<number>>(new Set())
+  const [libraryKeys, setLibraryKeys] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -23,7 +24,7 @@ export function SearchInput() {
 
     if (!value.trim()) {
       setResults([])
-      setLibraryIds(new Set())
+      setLibraryKeys(new Set())
       setSearched(false)
       setIsLoading(false)
       requestIdRef.current += 1
@@ -36,9 +37,9 @@ export function SearchInput() {
       setIsLoading(true)
       try {
         const data = await searchTmdb(value)
-        const ids = await getLibraryTmdbIds(data.map((r) => r.tmdb_id))
+        const keys = await getLibraryTitleKeys(data.map((r) => ({ tmdbId: r.tmdb_id, type: r.type })))
         if (requestId !== requestIdRef.current) return
-        setLibraryIds(new Set(ids))
+        setLibraryKeys(new Set(keys))
         setResults(data)
         setSearched(true)
       } finally {
@@ -57,7 +58,7 @@ export function SearchInput() {
     requestIdRef.current += 1
     setQuery('')
     setResults([])
-    setLibraryIds(new Set())
+    setLibraryKeys(new Set())
     setSearched(false)
     setIsLoading(false)
   }
@@ -104,13 +105,17 @@ export function SearchInput() {
 
       {results.length > 0 && (
         <div className="space-y-2">
-          {results.map((result) => (
-            <TmdbResultCard
-              key={result.tmdb_id}
-              result={result}
-              initialAdded={libraryIds.has(result.tmdb_id)}
-            />
-          ))}
+          {results.map((result) => {
+            // /search/multi может вернуть фильм и сериал с одинаковым tmdb_id
+            const titleKey = mediaTitleKey(result.type, result.tmdb_id)
+            return (
+              <TmdbResultCard
+                key={titleKey}
+                result={result}
+                initialAdded={libraryKeys.has(titleKey)}
+              />
+            )
+          })}
         </div>
       )}
     </div>
