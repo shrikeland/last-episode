@@ -10,21 +10,18 @@ export class NavbarPage {
     await this.page.waitForURL(/login/, { timeout: 10000 })
   }
 
-  /**
-   * Username of the signed-in user, read from the user menu's profile link.
-   * The local and the CI test accounts are different users — never hardcode it.
-   * Leaves the menu open.
-   */
-  async ownUsername(): Promise<string> {
+  /** Username of the signed-in user, read from the profile link in the account menu. */
+  async getOwnUsername(): Promise<string> {
     await this.page.getByTestId('avatar-button').click()
-    const href = await this.profileLink.getAttribute('href')
-    const username = href?.match(/^\/profile\/([^/]+)$/)?.[1]
-    expect(username, `unexpected profile link href: ${href}`).toBeTruthy()
-    return decodeURIComponent(username!)
-  }
-
-  get profileLink() {
-    return this.page.getByTestId('menu-profile-link')
+    const link = this.page.getByTestId('menu-profile-link')
+    await link.waitFor({ state: 'visible' })
+    const href = await link.getAttribute('href')
+    // Close the menu again — its header also shows @username
+    await this.page.getByTestId('avatar-button').click()
+    await link.waitFor({ state: 'detached' })
+    const username = href?.match(/^\/profile\/([^/?#]+)$/)?.[1]
+    if (!username) throw new Error(`Unexpected profile link href: ${href}`)
+    return decodeURIComponent(username)
   }
 
   async assertVisible() {
