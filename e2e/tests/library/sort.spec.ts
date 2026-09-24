@@ -1,7 +1,7 @@
-import { test, expect } from '@/fixtures/auth.fixture'
+// Seeded: TC-LIB-SORT-003 needs ≥2 movies, the others need any card
+import { test, expect } from '@/fixtures/library.fixture'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { MediaPage } from '@/pages/MediaPage'
-import { SearchPage } from '@/pages/SearchPage'
 import { isBaseUrlReachable } from '@/support/network'
 
 let reachable: boolean
@@ -9,8 +9,6 @@ let reachable: boolean
 test.beforeAll(async () => {
   reachable = await isBaseUrlReachable()
 })
-
-const SEED_MOVIES = ['Inception', 'Interstellar']
 
 function cardId(testId: string | null): string {
   return (testId ?? '').replace('media-card-', '')
@@ -39,23 +37,6 @@ test('TC-LIB-SORT-003: changing a title\'s status moves it to the top of "Нед
   // Фильтр по типу даёт плоский список без секций — порядок читается напрямую
   const url = '/library?type=movie&sort=updated_at&dir=desc'
   await page.goto(url, { waitUntil: 'networkidle' })
-
-  // Библиотеку тестового аккаунта подъедают другие тесты (TC-LIB-004 удаляет карточку) —
-  // доводим её до двух фильмов через поиск
-  if ((await library.cards().count()) < 2) {
-    const search = new SearchPage(page)
-    for (const title of SEED_MOVIES) {
-      await search.goto()
-      await search.search(title)
-      const card = await search.waitForResults()
-      if (await card.getByRole('button', { name: 'Добавить' }).isVisible()) {
-        await search.clickAddOnFirstResult()
-        await search.confirmAdd()
-        await search.assertFirstCardAdded()
-      }
-    }
-    await page.goto(url, { waitUntil: 'networkidle' })
-  }
   await library.waitForCards()
   expect(await library.cards().count()).toBeGreaterThanOrEqual(2)
 

@@ -1,5 +1,6 @@
 import { test as authTest, expect } from '@/fixtures/auth.fixture'
 import { test, expect as baseExpect } from '@playwright/test'
+import { NavbarPage } from '@/pages/NavbarPage'
 import { isBaseUrlReachable } from '@/support/network'
 
 let reachable: boolean
@@ -20,12 +21,21 @@ authTest('TC-COMM-001: community page loads with user search input', async ({ au
 
 authTest('TC-COMM-002: searching a username shows results or empty message', async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+  // searchUsers doesn't exclude the current user — searching our own username is a guaranteed hit
+  await page.goto('/library', { waitUntil: 'networkidle' })
+  const username = await new NavbarPage(page).ownUsername()
+
   await page.goto('/community', { waitUntil: 'networkidle' })
   const input = page.getByPlaceholder('Найти пользователя по логину...')
-  await input.fill('a')
-  await page.waitForTimeout(600)
-  // Either a UserCard or empty message should appear
-  const hasResults = await page.locator('.flex.items-center.gap-3.p-4').count() > 0
-  const hasEmpty = await page.getByText(/Пользователи не найдены/).isVisible().catch(() => false)
-  expect(hasResults || hasEmpty).toBeTruthy()
+
+  // Results are UserCards — links to /profile/<username>. Matched by the exact «@username» line,
+  // so longer usernames that contain ours don't count
+  await input.fill(username)
+  const ownCard = page.getByRole('link').filter({ has: page.getByText(`@${username}`, { exact: true }) })
+  await expect(ownCard).toBeVisible({ timeout: 10000 })
+  await expect(ownCard).toHaveAttribute('href', `/profile/${encodeURIComponent(username)}`)
+
+  await input.fill('zz-no-such-user-e2e')
+  await expect(page.getByText('Пользователи не найдены')).toBeVisible({ timeout: 10000 })
+  await expect(ownCard).toHaveCount(0)
 })

@@ -1,4 +1,5 @@
-import { test as authTest, expect } from '@/fixtures/auth.fixture'
+// Seeded: the CI account starts with an empty library, these tests need cards
+import { test as authTest, expect } from '@/fixtures/library.fixture'
 import { test, expect as baseExpect } from '@playwright/test'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { MediaPage } from '@/pages/MediaPage'
@@ -55,18 +56,16 @@ authTest('TC-MEDIA-002: changing status is reflected in the select', async ({ au
 authTest('TC-MEDIA-003: toggling episode checkbox changes checked state', async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
 
-  // Navigate to a TV show (series) — need season accordion
+  // Needs a TV show (season accordion). The unfiltered library opens with movies,
+  // so filter by type — the seed guarantees at least one show
   const library = new LibraryPage(page)
-  await library.goto()
+  await library.goto({ type: 'tv' })
   await library.waitForCards()
   await library.clickFirstCardLink()
 
   const media = new MediaPage(page)
   await media.waitForLoad()
-
-  // Skip if no season accordion (movie/animation)
-  const hasAccordion = await media.seasonAccordion.isVisible().catch(() => false)
-  authTest.skip(!hasAccordion, 'First library item has no seasons (movie/animation) — need a TV show')
+  await expect(media.seasonAccordion).toBeVisible()
 
   await media.openFirstSeasonAccordion()
 
@@ -83,15 +82,13 @@ authTest('TC-MEDIA-004: mark season watched checks all episodes', async ({ authe
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
 
   const library = new LibraryPage(page)
-  await library.goto()
+  await library.goto({ type: 'tv' })
   await library.waitForCards()
   await library.clickFirstCardLink()
 
   const media = new MediaPage(page)
   await media.waitForLoad()
-
-  const hasAccordion = await media.seasonAccordion.isVisible().catch(() => false)
-  authTest.skip(!hasAccordion, 'First item has no seasons')
+  await expect(media.seasonAccordion).toBeVisible()
 
   await media.openFirstSeasonAccordion()
   await media.markFirstSeasonWatched()

@@ -1,4 +1,5 @@
-import { test as authTest, expect } from '@/fixtures/auth.fixture'
+// Seeded: the CI account starts with an empty library, these tests need cards
+import { test as authTest, expect } from '@/fixtures/library.fixture'
 import { test, expect as baseExpect } from '@playwright/test'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { SearchPage } from '@/pages/SearchPage'

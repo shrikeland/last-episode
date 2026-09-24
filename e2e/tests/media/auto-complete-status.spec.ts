@@ -1,6 +1,6 @@
-import * as path from 'path'
 import { type Page } from '@playwright/test'
-import { test, expect } from '@/fixtures/auth.fixture'
+import { newAuthenticatedContext } from '@/fixtures/auth.fixture'
+import { test, expect } from '@/fixtures/library.fixture'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { MediaPage } from '@/pages/MediaPage'
 import { isBaseUrlReachable } from '@/support/network'
@@ -8,17 +8,18 @@ import { isBaseUrlReachable } from '@/support/network'
 /**
  * Тост «Все серии отмечены → Перевести в «Просмотрено»?» (ideas/005, plans/auto-complete-status.md).
  *
- * Работает на сериале тестового аккаунта: 1 сезон, 5 серий, исходно «Смотрю» и все серии отмечены.
+ * Работает на сериале «Чернобыль» (1 сезон, 5 серий) — его добавляет ensureLibrarySeeded.
+ * prepare() сам выставляет нужный статус и отметки, исходное состояние не важно.
  * Тесты меняют его состояние, afterAll возвращает статус и отметки
  * (у последней серии обновится watched_at — это ожидаемо).
  */
 const TITLE = 'Чернобыль'
-const STORAGE_STATE_PATH = path.join(__dirname, '../../support/auth.storage.json')
 
 let reachable: boolean
 let mediaUrl: string | null = null
 
-test.describe.configure({ mode: 'serial' })
+// prepare() reloads the title several times and clicks episodes one by one against prod — 30s is not enough
+test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
 test.beforeAll(async () => {
   reachable = await isBaseUrlReachable()
@@ -78,7 +79,10 @@ async function prepare(page: Page, statusLabel: string): Promise<MediaPage> {
 
 test.afterAll(async ({ browser }) => {
   if (!reachable || !mediaUrl) return
-  const context = await browser.newContext({ storageState: STORAGE_STATE_PATH })
+  // Hooks don't inherit describe.configure's timeout; restoring clicks every episode
+  test.setTimeout(90_000)
+  // Not the saved storageState as is: the session in it may have been revoked by TC-AUTH-010
+  const context = await newAuthenticatedContext(browser)
   const page = await context.newPage()
   try {
     let media = await openTitle(page)
@@ -96,7 +100,8 @@ test.afterAll(async ({ browser }) => {
 
 test('TC-AUTO-001: last episode offers «Просмотрено»; «Да» switches status and keeps earlier dates', async ({ authenticatedPage: page }) => {
   test.skip(!reachable, 'BASE_URL not reachable from this environment')
-  test.skip(!(await findTitleUrl(page)), `«${TITLE}» not found in test account library`)
+  // Seeded by library.fixture — a missing title is a failure, not a reason to skip
+  expect(await findTitleUrl(page), `«${TITLE}» not found in test account library`).toBeTruthy()
 
   const media = await prepare(page, 'Смотрю')
   const firstRowBefore = await media.episodeRow(0).textContent()
