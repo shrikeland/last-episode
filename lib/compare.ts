@@ -1,3 +1,4 @@
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import type { MediaItem } from '@/types'
 
 /** Минимум полей тайтла, нужный для сравнения библиотек. */
@@ -29,8 +30,7 @@ export const FAVORITE_FALLBACK_TOP = 10
  * поэтому сравниваем по роду TMDB: movie/animation → фильм, tv/anime → сериал.
  */
 export function libraryKey(item: Pick<MediaItem, 'tmdb_id' | 'type'>): string {
-  const kind = item.type === 'movie' || item.type === 'animation' ? 'movie' : 'tv'
-  return `${kind}:${item.tmdb_id}`
+  return mediaTitleKey(item.type, item.tmdb_id)
 }
 
 function byTitle(a: CompareItem, b: CompareItem): number {

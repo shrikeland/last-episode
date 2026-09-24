@@ -15,6 +15,7 @@ import { CastList } from '@/components/media/CastList'
 import { TitleRecommendations, type TitleRecommendationItem } from '@/components/media/TitleRecommendations'
 import { FriendsOnTitle } from '@/components/media/FriendsOnTitle'
 import { buildPosterUrl, getRelatedTitles, getTopCast, getTVDetails } from '@/lib/tmdb/tmdb.service'
+import { getLibraryItemIds } from '@/app/actions/tmdb'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import { capitalizeGenre, toCanonicalGenres } from '@/lib/genres'
 import { cn } from '@/lib/utils'
@@ -55,22 +56,14 @@ export default async function MediaDetailPage({ params }: PageProps) {
   const [cast, related, friendsOnTitle] = await Promise.all([
     getTopCast(item.tmdb_id, tmdbMediaType),
     getRelatedTitles(item.tmdb_id, item.type),
-    getFriendsWithTitle(supabase, user.id, item.tmdb_id),
+    getFriendsWithTitle(supabase, user.id, item.tmdb_kind, item.tmdb_id),
   ])
 
   await syncPromise
 
   const seasons = isSeries ? await getSeasonsWithEpisodes(supabase, id) : []
-  const relatedIds = related.map((relatedItem) => relatedItem.tmdb_id)
-  const { data: existingRows } = relatedIds.length > 0
-    ? await supabase
-        .from('media_items')
-        .select('id, tmdb_id')
-        .eq('user_id', user.id)
-        .in('tmdb_id', relatedIds)
-    : { data: [] }
-  const libraryItemIds: Record<number, string> = Object.fromEntries(
-    ((existingRows ?? []) as { id: string; tmdb_id: number }[]).map((row) => [row.tmdb_id, row.id])
+  const libraryItemIds = await getLibraryItemIds(
+    related.map((relatedItem) => ({ tmdbId: relatedItem.tmdb_id, type: relatedItem.type }))
   )
   const recommendationItems: TitleRecommendationItem[] = related.map((relatedItem) => ({
     tmdbId: relatedItem.tmdb_id,

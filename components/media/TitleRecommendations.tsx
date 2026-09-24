@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { AddToLibraryDialog, type AddToLibraryState } from '@/components/library/AddToLibraryDialog'
 import { RelatedTitleDialog } from '@/components/media/RelatedTitleDialog'
 import { addMediaItem } from '@/app/actions/tmdb'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import { MEDIA_TYPE_LABELS, type CreateMediaItemOptions, type MediaStatus, type MediaType } from '@/types'
 
 const ERROR_MESSAGES = {
@@ -37,8 +38,8 @@ export interface TitleRecommendationItem {
 
 interface TitleRecommendationsProps {
   items: TitleRecommendationItem[]
-  /** tmdb_id → внутренний id уже добавленных в библиотеку тайтлов */
-  libraryItemIds: Record<number, string>
+  /** mediaTitleKey ('movie:1399') → внутренний id уже добавленных в библиотеку тайтлов */
+  libraryItemIds: Record<string, string>
 }
 
 function TitleRecommendationCard({
@@ -196,13 +197,16 @@ export function TitleRecommendations({ items, libraryItemIds }: TitleRecommendat
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {items.map((item) => (
-          <TitleRecommendationCard
-            key={item.tmdbId}
-            item={item}
-            initialLibraryId={libraryItemIds[item.tmdbId] ?? null}
-          />
-        ))}
+        {items.map((item) => {
+          const titleKey = mediaTitleKey(item.type, item.tmdbId)
+          return (
+            <TitleRecommendationCard
+              key={titleKey}
+              item={item}
+              initialLibraryId={libraryItemIds[titleKey] ?? null}
+            />
+          )
+        })}
       </div>
     </section>
   )

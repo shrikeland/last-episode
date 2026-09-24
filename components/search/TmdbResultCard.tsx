@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddToLibraryDialog } from '@/components/library/AddToLibraryDialog'
 import { addMediaItem } from '@/app/actions/tmdb'
+import { tmdbKindOf } from '@/lib/tmdb/kind'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import type { CreateMediaItemOptions, MediaStatus, TmdbSearchResult } from '@/types'
 
@@ -56,7 +57,7 @@ export function TmdbResultCard({ result, initialAdded = false }: TmdbResultCardP
   return (
     <div
       className="flex flex-col gap-3 p-3 bg-card border border-border rounded-lg hover:border-border/80 transition-colors sm:flex-row"
-      data-testid={`tmdb-result-card-${result.tmdb_id}`}
+      data-testid={`tmdb-result-card-${tmdbKindOf(result.type)}-${result.tmdb_id}`}
     >
       <div className="flex min-w-0 flex-1 gap-3">
         {/* Постер */}

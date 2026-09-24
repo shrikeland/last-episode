@@ -145,7 +145,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
       ? getSeasonsWithEpisodes(service, item.id)
       : Promise.resolve([]),
     getTopCast(item.tmdb_id, tmdbMediaType),
-    getMediaItemIdByTmdbId(supabase, user.id, item.tmdb_id),
+    getMediaItemIdByTmdbId(supabase, user.id, item.tmdb_kind, item.tmdb_id),
   ])
 
   return (

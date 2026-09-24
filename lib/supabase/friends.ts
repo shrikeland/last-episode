@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServiceClient } from '@/lib/supabase/service'
-import type { Database, MediaStatus, MediaType } from '@/types'
+import type { Database, MediaStatus, MediaType, TmdbKind } from '@/types'
 
 type Client = SupabaseClient<Database>
 
@@ -33,7 +33,7 @@ const STATUSES_WITH_EPISODE: ReadonlySet<MediaStatus> = new Set(['watching', 'dr
  * который RLS обходит. Доступ ограничивается здесь, в коде, и порядок шагов важен:
  * 1. friendships — RLS-клиентом пользователя: только принятые дружбы, где он одна из сторон;
  * 2. profiles — только эти друзья и только с открытой библиотекой;
- * 3. service client читает media_items строго по user_id из шага 2 и по одному tmdb_id,
+ * 3. service client читает media_items строго по user_id из шага 2 и по одному тайтлу (kind, tmdb_id),
  *    а episodes — строго по id записей из шага 3.
  *
  * `userId` должен приходить из getServerUser(). Ошибки глотаются: блок необязательный,
@@ -42,6 +42,7 @@ const STATUSES_WITH_EPISODE: ReadonlySet<MediaStatus> = new Set(['watching', 'dr
 export async function getFriendsWithTitle(
   client: Client,
   userId: string,
+  tmdbKind: TmdbKind,
   tmdbId: number
 ): Promise<FriendTitleEntry[]> {
   if (!userId || !Number.isInteger(tmdbId)) return []
@@ -80,11 +81,13 @@ export async function getFriendsWithTitle(
     )
     if (usernameById.size === 0) return []
 
-    // 3. Service client — только по отфильтрованным user_id и одному tmdb_id
+    // 3. Service client — только по отфильтрованным user_id и одному тайтлу.
+    //    Фильм и сериал с одним tmdb_id — разные тайтлы, поэтому фильтр и по kind
     const service = createServiceClient()
     const { data: items, error: itemsError } = await service
       .from('media_items')
       .select('id, user_id, type, status, rating')
+      .eq('tmdb_kind', tmdbKind)
       .eq('tmdb_id', tmdbId)
       .in('user_id', [...usernameById.keys()])
 

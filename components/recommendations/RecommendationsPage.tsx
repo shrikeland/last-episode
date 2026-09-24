@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { TasteProfileCard } from './TasteProfileCard'
 import { RecommendationQuestionnaire } from './RecommendationQuestionnaire'
 import { RecommendationResults } from './RecommendationResults'
-import { getLibraryTmdbIds } from '@/app/actions/tmdb'
+import { getLibraryTitleKeys } from '@/app/actions/tmdb'
 import type { TasteProfile, QuestionnaireAnswers, RecommendationCardData } from '@/types/recommendations'
 
 const INTRO_DONE_MARKER = '\n__INTRO_DONE__\n'
@@ -30,7 +30,7 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
   const [isStreamingIntro, setIsStreamingIntro] = useState(false)
   const [isLoadingCards, setIsLoadingCards] = useState(false)
   const [cards, setCards] = useState<RecommendationCardData[]>([])
-  const [libraryIds, setLibraryIds] = useState<Set<number>>(new Set())
+  const [libraryKeys, setLibraryKeys] = useState<Set<string>>(new Set())
 
   async function handleUpdateProfile() {
     setIsUpdatingProfile(true)
@@ -98,9 +98,9 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
           const cardsJson = accumulated.slice(cardsIdx + CARDS_MARKER.length).trim()
           try {
             const parsed = JSON.parse(cardsJson) as RecommendationCardData[]
-            const tmdbIds = parsed.map((c) => c.tmdbId).filter((id): id is number => id != null)
-            const ids = await getLibraryTmdbIds(tmdbIds)
-            setLibraryIds(new Set(ids))
+            const titles = parsed.flatMap((c) => (c.tmdbId != null ? [{ tmdbId: c.tmdbId, type: c.type }] : []))
+            const keys = await getLibraryTitleKeys(titles)
+            setLibraryKeys(new Set(keys))
             setCards(parsed)
           } catch {
             toast.error('Не удалось разобрать список рекомендаций')
@@ -134,7 +134,7 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
     setPhase('questionnaire')
     setIntroText('')
     setCards([])
-    setLibraryIds(new Set())
+    setLibraryKeys(new Set())
     setIsStreamingIntro(false)
     setIsLoadingCards(false)
   }
@@ -187,7 +187,7 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
           isStreamingIntro={isStreamingIntro}
           isLoadingCards={isLoadingCards}
           cards={cards}
-          libraryIds={libraryIds}
+          libraryKeys={libraryKeys}
           onReset={handleReset}
         />
       )}

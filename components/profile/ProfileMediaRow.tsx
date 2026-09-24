@@ -4,17 +4,19 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { ProfileMediaCard } from './ProfileMediaCard'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import type { MediaItem } from '@/types'
 
 interface ProfileMediaRowProps {
   items: MediaItem[]
-  initialAddedTmdbIds?: number[]
+  /** Ключи mediaTitleKey тайтлов, которые уже в библиотеке смотрящего. */
+  initialAddedKeys?: string[]
 }
 
-export function ProfileMediaRow({ items, initialAddedTmdbIds = [] }: ProfileMediaRowProps) {
+export function ProfileMediaRow({ items, initialAddedKeys = [] }: ProfileMediaRowProps) {
   const params = useParams<{ username: string }>()
   const username = params.username
-  const addedTmdbIds = new Set(initialAddedTmdbIds)
+  const addedKeys = new Set(initialAddedKeys)
   const containerRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -75,7 +77,7 @@ export function ProfileMediaRow({ items, initialAddedTmdbIds = [] }: ProfileMedi
             <ProfileMediaCard
               item={item}
               username={username}
-              initialAdded={addedTmdbIds.has(item.tmdb_id)}
+              initialAdded={addedKeys.has(mediaTitleKey(item.type, item.tmdb_id))}
             />
           </div>
         ))}
