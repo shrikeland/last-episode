@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItemById } from '@/lib/supabase/media'
 import { getSeasonsWithEpisodes, syncSeasonsAndEpisodes } from '@/lib/supabase/progress'
+import { getFriendsWithTitle } from '@/lib/supabase/friends'
 import { Badge, badgeVariants } from '@/components/ui/badge'
 import { BackButton } from '@/components/media/BackButton'
 import { MediaPoster } from '@/components/media/MediaPoster'
@@ -12,6 +13,7 @@ import { NotesEditor } from '@/components/media/NotesEditor'
 import { SeasonAccordion } from '@/components/media/SeasonAccordion'
 import { CastList } from '@/components/media/CastList'
 import { TitleRecommendations, type TitleRecommendationItem } from '@/components/media/TitleRecommendations'
+import { FriendsOnTitle } from '@/components/media/FriendsOnTitle'
 import { buildPosterUrl, getRelatedTitles, getTopCast, getTVDetails } from '@/lib/tmdb/tmdb.service'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import { capitalizeGenre, toCanonicalGenres } from '@/lib/genres'
@@ -50,9 +52,10 @@ export default async function MediaDetailPage({ params }: PageProps) {
         })
     : Promise.resolve()
 
-  const [cast, related] = await Promise.all([
+  const [cast, related, friendsOnTitle] = await Promise.all([
     getTopCast(item.tmdb_id, tmdbMediaType),
     getRelatedTitles(item.tmdb_id, item.type),
+    getFriendsWithTitle(supabase, user.id, item.tmdb_id),
   ])
 
   await syncPromise
@@ -136,6 +139,8 @@ export default async function MediaDetailPage({ params }: PageProps) {
               currentRating={item.rating}
             />
           </div>
+
+          <FriendsOnTitle entries={friendsOnTitle} />
 
           {/* Overview */}
           {item.overview && (

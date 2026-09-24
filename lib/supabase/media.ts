@@ -89,6 +89,23 @@ export async function getMediaItemById(
   return data as MediaItem
 }
 
+/** id своей записи по tmdb_id — для ссылки «Моя карточка» с чужой карточки тайтла. */
+export async function getMediaItemIdByTmdbId(
+  client: Client,
+  userId: string,
+  tmdbId: number
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('tmdb_id', tmdbId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return (data as Pick<MediaItem, 'id'>).id
+}
+
 export async function createMediaItem(
   client: Client,
   userId: string,
