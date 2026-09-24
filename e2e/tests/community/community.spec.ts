@@ -1,6 +1,7 @@
 import { test as authTest, expect } from '@/fixtures/auth.fixture'
 import { test, expect as baseExpect } from '@playwright/test'
 import { isBaseUrlReachable } from '@/support/network'
+import { NavbarPage } from '@/pages/NavbarPage'
 
 let reachable: boolean
 authTest.beforeAll(async () => { reachable = await isBaseUrlReachable() })
@@ -18,14 +19,13 @@ authTest('TC-COMM-001: community page loads with user search input', async ({ au
   await expect(page.getByPlaceholder('Найти пользователя по логину...')).toBeVisible({ timeout: 15000 })
 })
 
-authTest('TC-COMM-002: searching a username shows results or empty message', async ({ authenticatedPage: page }) => {
+authTest('TC-COMM-002: searching own username shows own user card', async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   await page.goto('/community', { waitUntil: 'networkidle' })
-  const input = page.getByPlaceholder('Найти пользователя по логину...')
-  await input.fill('a')
-  await page.waitForTimeout(600)
-  // Either a UserCard or empty message should appear
-  const hasResults = await page.locator('.flex.items-center.gap-3.p-4').count() > 0
-  const hasEmpty = await page.getByText(/Пользователи не найдены/).isVisible().catch(() => false)
-  expect(hasResults || hasEmpty).toBeTruthy()
+  // Own username is a guaranteed hit, unlike an arbitrary query against prod data
+  const username = await new NavbarPage(page).getOwnUsername()
+  await page.getByPlaceholder('Найти пользователя по логину...').fill(username)
+  // Search is debounced (400 ms) and then calls a server action on prod — poll instead of a fixed sleep.
+  // "Новые пользователи" hide as soon as the query is non-empty, so a card here comes from search results.
+  await expect(page.getByRole('link', { name: `@${username}` }).first()).toBeVisible({ timeout: 15000 })
 })
