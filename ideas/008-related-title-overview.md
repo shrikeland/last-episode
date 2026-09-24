@@ -4,7 +4,7 @@ slug: related-title-overview
 lens: тупики пути
 value: medium
 cost: S
-status: new
+status: planned
 created: 2026-09-24
 ---
 

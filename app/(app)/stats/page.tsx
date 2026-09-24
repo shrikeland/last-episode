@@ -79,8 +79,8 @@ export default async function StatsPage() {
       <StatsOverview stats={stats} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatsBreakdown stats={stats} />
-        <GenreTopList topGenres={stats.topGenres} />
+        <StatsBreakdown stats={stats} linkable />
+        <GenreTopList topGenres={stats.topGenres} linkable />
       </div>
 
       <WatchTimeline timeline={timeline} days={WATCH_TIMELINE_DAYS} />

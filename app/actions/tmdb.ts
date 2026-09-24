@@ -63,6 +63,8 @@ export async function addMediaItem(
   options?: CreateMediaItemOptions
 ): Promise<{
   success: boolean
+  /** id созданной записи media_items — для ссылки на свою карточку */
+  id?: string
   error?: 'already_exists' | 'tmdb_error' | 'db_error' | 'invalid_rating'
     | 'planned_seasons'
 }> {
@@ -113,5 +115,5 @@ export async function addMediaItem(
     }
   }
 
-  return { success: true }
+  return { success: true, id: result.item?.id }
 }

@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Plus } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowUpRight, Check, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { addMediaItem } from '@/app/actions/tmdb'
 import { AddToLibraryDialog, type AddToLibraryState } from '@/components/library/AddToLibraryDialog'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import type { CreateMediaItemOptions, MediaItem, MediaStatus } from '@/types'
 
 const ERROR_MESSAGES = {
@@ -19,6 +21,8 @@ const ERROR_MESSAGES = {
 interface ProfileAddToLibraryControlProps {
   item: Pick<MediaItem, 'tmdb_id' | 'title' | 'type' | 'poster_url' | 'release_year'>
   initialAdded?: boolean
+  /** id моей записи этого тайтла — вместо «Добавлено» показываем ссылку на свою карточку */
+  myMediaItemId?: string | null
   className?: string
   iconOnly?: boolean
 }
@@ -26,10 +30,14 @@ interface ProfileAddToLibraryControlProps {
 export function ProfileAddToLibraryControl({
   item,
   initialAdded = false,
+  myMediaItemId = null,
   className,
   iconOnly = false,
 }: ProfileAddToLibraryControlProps) {
-  const [state, setState] = useState<AddToLibraryState>(initialAdded ? 'added' : 'idle')
+  const [state, setState] = useState<AddToLibraryState>(
+    initialAdded || myMediaItemId ? 'added' : 'idle'
+  )
+  const [myItemId, setMyItemId] = useState<string | null>(myMediaItemId)
   const [status, setStatus] = useState<MediaStatus>('planned')
   const [rating, setRating] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
@@ -41,6 +49,7 @@ export function ProfileAddToLibraryControl({
 
     if (result.success) {
       setState('added')
+      if (result.id) setMyItemId(result.id)
       setOpen(false)
       toast.success(`«${item.title}» добавлен в коллекцию`)
       return
@@ -56,38 +65,52 @@ export function ProfileAddToLibraryControl({
     toast.error(ERROR_MESSAGES[result.error ?? 'db_error'])
   }
 
+  // Диалог остаётся смонтированным, чтобы после добавления закрыться с анимацией
+  const showMyCardLink = !iconOnly && state === 'added' && myItemId != null
+
   return (
     <>
-      <Button
-        type="button"
-        size="sm"
-        variant={state === 'added' ? 'secondary' : 'outline'}
-        disabled={state !== 'idle'}
-        onClick={() => setOpen(true)}
-        className={className}
-        aria-label={state === 'added' ? 'Тайтл уже в библиотеке' : `Добавить «${item.title}»`}
-        title={state === 'added' ? 'В библиотеке' : 'Добавить'}
-      >
-        {iconOnly ? (
-          state === 'added' ? (
-            <Check className="h-3.5 w-3.5" />
+      {showMyCardLink ? (
+        <Link
+          href={`/media/${myItemId}`}
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), className)}
+          title="Тайтл уже в вашей библиотеке"
+        >
+          <ArrowUpRight className="h-3.5 w-3.5" />
+          Моя карточка
+        </Link>
+      ) : (
+        <Button
+          type="button"
+          size="sm"
+          variant={state === 'added' ? 'secondary' : 'outline'}
+          disabled={state !== 'idle'}
+          onClick={() => setOpen(true)}
+          className={className}
+          aria-label={state === 'added' ? 'Тайтл уже в библиотеке' : `Добавить «${item.title}»`}
+          title={state === 'added' ? 'В библиотеке' : 'Добавить'}
+        >
+          {iconOnly ? (
+            state === 'added' ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )
+          ) : state === 'loading' ? (
+            'Добавляю...'
+          ) : state === 'added' ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              Добавлено
+            </>
           ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )
-        ) : state === 'loading' ? (
-          'Добавляю...'
-        ) : state === 'added' ? (
-          <>
-            <Check className="h-3.5 w-3.5" />
-            Добавлено
-          </>
-        ) : (
-          <>
-            <Plus className="h-3.5 w-3.5" />
-            Добавить
-          </>
-        )}
-      </Button>
+            <>
+              <Plus className="h-3.5 w-3.5" />
+              Добавить
+            </>
+          )}
+        </Button>
+      )}
 
       <AddToLibraryDialog
         title={item.title}
