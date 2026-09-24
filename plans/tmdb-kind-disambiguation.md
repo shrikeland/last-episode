@@ -34,7 +34,7 @@
 `recommendation_history`: вариант 1 невозможен (там нет `type`). Добавляем nullable `tmdb_kind` с CHECK. У старых строк kind неизвестен, поэтому `NULL` = «legacy, совпадает с любым kind» (консервативный anti-repeat). Через 45 дней такие строки выпадут из окна сами.
 
 ## Approach
-- **Миграция** `supabase/migrations/20260924120000_media_items_tmdb_kind.sql` (одна транзакция):
+- **Миграция** `supabase/migrations/20260924194327_media_items_tmdb_kind.sql` (одна транзакция):
   - `media_items`: `ADD COLUMN tmdb_kind … GENERATED ALWAYS AS (…) STORED`
   - `DROP CONSTRAINT IF EXISTS media_items_unique_user_tmdb`
   - `ADD CONSTRAINT media_items_unique_user_kind_tmdb UNIQUE (user_id, tmdb_kind, tmdb_id)`
@@ -74,7 +74,7 @@
 - [x] `route.ts` рекомендаций + `recommendation_history`
 - [x] `npm run lint` — 0 ошибок
 - [x] `npm run build` — 0 ошибок
-- [ ] Применить миграцию к удалённой БД — **только после подтверждения пользователя**
+- [x] Применить миграцию к удалённой БД (по подтверждению пользователя; удалённая версия `20260924194327`, файл переименован под неё)
 
 ## Risks / open questions
 - `ADD COLUMN … STORED` переписывает таблицу под `ACCESS EXCLUSIVE`-локом. `media_items` маленькая, так что это доли секунды.
