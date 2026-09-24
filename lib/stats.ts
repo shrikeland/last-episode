@@ -1,4 +1,5 @@
 import type { MediaItem, WatchStats } from '@/types'
+import { toCanonicalGenres } from '@/lib/genres'
 
 export interface EpisodeForStats {
   runtime_minutes: number | null
@@ -40,14 +41,19 @@ export function computeStats(
     byStatus[item.status]++
   }
 
+  // Считаем по каноническим жанрам, как фильтр библиотеки: сериальный «Боевик и Приключения»
+  // и фильмовый «боевик» — один жанр. Тайтл учитывается в жанре один раз, даже если
+  // канонический жанр получился из нескольких сохранённых — иначе цифра разойдётся с «Найдено: N»
   const genreCount: Record<string, number> = {}
   for (const item of mediaItems) {
-    for (const genre of item.genres) {
+    const canonical = new Set(item.genres.flatMap(toCanonicalGenres))
+    for (const genre of canonical) {
       genreCount[genre] = (genreCount[genre] ?? 0) + 1
     }
   }
+  // genre — канонический (нижний регистр): его же ждёт ?genre= в библиотеке; к выводу капитализирует компонент
   const topGenres = Object.entries(genreCount)
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ru'))
     .slice(0, 5)
     .map(([genre, count]) => ({ genre, count }))
 
