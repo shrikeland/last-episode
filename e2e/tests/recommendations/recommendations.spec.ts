@@ -26,7 +26,8 @@ authTest('TC-REC-002: questionnaire form is present and can be interacted with',
   await page.goto('/recommendations', { waitUntil: 'networkidle' })
 
   const questionnaire = page.getByTestId('recommendation-questionnaire')
-  const hasQuestionnaire = await questionnaire.isVisible({ timeout: 5000 }).catch(() => false)
+  // isVisible() doesn't wait (its timeout is ignored) — waitFor does
+  const hasQuestionnaire = await questionnaire.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)
   authTest.skip(!hasQuestionnaire, 'Questionnaire not visible on this session — may already have recommendations')
 
   // Questionnaire should have at least one interactive element
