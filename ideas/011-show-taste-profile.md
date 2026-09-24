@@ -4,7 +4,7 @@ slug: show-taste-profile
 lens: персонализация по своим данным
 value: high
 cost: S
-status: planned
+status: done
 created: 2026-09-24
 ---
 

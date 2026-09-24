@@ -4,7 +4,7 @@ slug: friends-on-title
 lens: недожатая социалка
 value: high
 cost: M
-status: planned
+status: done
 created: 2026-09-24
 ---
 

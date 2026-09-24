@@ -4,7 +4,7 @@ slug: clickable-genres-statuses
 lens: тупики пути
 value: medium
 cost: S
-status: planned
+status: done
 created: 2026-09-24
 ---
 
