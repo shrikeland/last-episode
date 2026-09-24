@@ -11,6 +11,12 @@ jobs:
     name: Playwright (chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # TEST_USER_* and VERCEL_BYPASS_SECRET are environment secrets of "Production",
+    # not repository secrets — without this they resolve to empty strings.
+    # deployment: false — only borrow the secrets, don't create a GitHub deployment per run.
+    environment:
+      name: Production
+      deployment: false
 
     steps:
       - uses: actions/checkout@v4
