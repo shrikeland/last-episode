@@ -5,6 +5,9 @@ import { StatsOverview } from '@/components/stats/StatsOverview'
 import { StatsBreakdown } from '@/components/stats/StatsBreakdown'
 import { GenreTopList } from '@/components/stats/GenreTopList'
 import { ProfileLibrarySections } from '@/components/profile/ProfileLibrarySections'
+import { CommonTitles } from '@/components/profile/CommonTitles'
+import { getCompareContext } from '@/app/actions/compare'
+import { compareLibraries } from '@/lib/compare'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,11 +17,22 @@ interface ProfilePageProps {
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params
-  const data = await getUserProfile(username)
+  // Моя библиотека и друзья не зависят от профиля — грузим параллельно
+  const [data, viewer] = await Promise.all([getUserProfile(username), getCompareContext()])
 
   if (!data) notFound()
 
   const { profile, mediaItems, stats } = data
+
+  // «Что у нас общего» — только на профиле принятого друга с открытой непустой библиотекой
+  const comparison =
+    viewer &&
+    profile.id !== viewer.viewerId &&
+    viewer.friendIds.includes(profile.id) &&
+    mediaItems.length > 0 &&
+    viewer.myItems.length > 0
+      ? compareLibraries(viewer.myItems, mediaItems)
+      : null
 
   const joinDate = new Date(profile.created_at).toLocaleDateString('ru-RU', {
     year: 'numeric',
@@ -50,6 +64,8 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           <GenreTopList topGenres={stats.topGenres} />
         </div>
       </section>
+
+      {comparison && <CommonTitles username={profile.username} comparison={comparison} />}
 
       {/* Библиотека */}
       <section className="space-y-4">
