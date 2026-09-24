@@ -7,6 +7,7 @@ import type {
   MediaFilters,
   SortOptions,
   TmdbDetails,
+  TmdbKind,
 } from '@/types'
 import { collectCanonicalGenres, genreVariants } from '@/lib/genres'
 
@@ -87,6 +88,28 @@ export async function getMediaItemById(
 
   if (error) return null
   return data as MediaItem
+}
+
+/**
+ * id своей записи по (kind, tmdb_id) — для ссылки «Моя карточка» с чужой карточки тайтла.
+ * Одного tmdb_id мало: фильм и сериал с одинаковым id — разные тайтлы.
+ */
+export async function getMediaItemIdByTmdbId(
+  client: Client,
+  userId: string,
+  tmdbKind: TmdbKind,
+  tmdbId: number
+): Promise<string | null> {
+  const { data, error } = await client
+    .from('media_items')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('tmdb_kind', tmdbKind)
+    .eq('tmdb_id', tmdbId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return (data as Pick<MediaItem, 'id'>).id
 }
 
 export async function createMediaItem(

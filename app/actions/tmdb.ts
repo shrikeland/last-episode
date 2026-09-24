@@ -37,27 +37,37 @@ function normalizeOptions(options?: CreateMediaItemOptions): CreateMediaItemOpti
 /**
  * Какие из переданных тайтлов уже есть в библиотеке текущего пользователя.
  * Сравнение по паре (kind, tmdb_id): фильм 1399 и сериал 1399 — разные тайтлы.
- * Возвращает ключи tmdbTitleKey ('movie:1399').
+ * Возвращает tmdbTitleKey ('movie:1399') → id записи media_items.
  */
-export async function getLibraryTitleKeys(
+export async function getLibraryItemIds(
   titles: { tmdbId: number; type: string }[]
-): Promise<string[]> {
-  if (!titles.length) return []
+): Promise<Record<string, string>> {
+  if (!titles.length) return {}
   const user = await getServerUser()
-  if (!user) return []
+  if (!user) return {}
 
   const supabase = await createServerClient()
 
   const requested = new Set(titles.map((t) => mediaTitleKey(t.type, t.tmdbId)))
   const { data } = await supabase
     .from('media_items')
-    .select('tmdb_id, tmdb_kind')
+    .select('id, tmdb_id, tmdb_kind')
     .eq('user_id', user.id)
     .in('tmdb_id', [...new Set(titles.map((t) => t.tmdbId))])
 
-  return ((data ?? []) as Pick<MediaItem, 'tmdb_id' | 'tmdb_kind'>[])
-    .map((row) => tmdbTitleKey(row.tmdb_kind, row.tmdb_id))
-    .filter((key) => requested.has(key))
+  const ids: Record<string, string> = {}
+  for (const row of (data ?? []) as Pick<MediaItem, 'id' | 'tmdb_id' | 'tmdb_kind'>[]) {
+    const key = tmdbTitleKey(row.tmdb_kind, row.tmdb_id)
+    if (requested.has(key)) ids[key] = row.id
+  }
+  return ids
+}
+
+/** То же, что getLibraryItemIds, но только ключи — когда нужен лишь признак «уже в библиотеке». */
+export async function getLibraryTitleKeys(
+  titles: { tmdbId: number; type: string }[]
+): Promise<string[]> {
+  return Object.keys(await getLibraryItemIds(titles))
 }
 
 export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
@@ -74,6 +84,8 @@ export async function addMediaItem(
   options?: CreateMediaItemOptions
 ): Promise<{
   success: boolean
+  /** id созданной записи media_items — для ссылки на свою карточку */
+  id?: string
   error?: 'already_exists' | 'tmdb_error' | 'db_error' | 'invalid_rating'
     | 'planned_seasons'
 }> {
@@ -124,5 +136,5 @@ export async function addMediaItem(
     }
   }
 
-  return { success: true }
+  return { success: true, id: result.item?.id }
 }

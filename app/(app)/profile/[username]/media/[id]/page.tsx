@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Circle } from 'lucide-react'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getMediaItemById } from '@/lib/supabase/media'
+import { createServerClient, getServerUser } from '@/lib/supabase/server'
+import { getMediaItemById, getMediaItemIdByTmdbId } from '@/lib/supabase/media'
 import { getSeasonsWithEpisodes } from '@/lib/supabase/progress'
 import { getTopCast } from '@/lib/tmdb/tmdb.service'
-import { getLibraryTitleKeys } from '@/app/actions/tmdb'
 import { Badge } from '@/components/ui/badge'
 import { CastList } from '@/components/media/CastList'
 import { MediaPoster } from '@/components/media/MediaPoster'
@@ -122,6 +122,8 @@ function ReadOnlyProgress({ seasons }: { seasons: SeasonWithEpisodes[] }) {
 
 export default async function PublicMediaDetailPage({ params }: PublicMediaDetailPageProps) {
   const { username, id } = await params
+  const user = await getServerUser()
+  if (!user) notFound()
   const service = createServiceClient()
 
   const { data: profile, error: profileError } = await service
@@ -137,12 +139,13 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
   if (!item) notFound()
 
   const tmdbMediaType = item.type === 'movie' || item.type === 'animation' ? 'movie' : 'tv'
-  const [seasons, cast, initialAddedKeys] = await Promise.all([
+  const supabase = await createServerClient()
+  const [seasons, cast, myMediaItemId] = await Promise.all([
     item.type !== 'movie' && item.type !== 'animation'
       ? getSeasonsWithEpisodes(service, item.id)
       : Promise.resolve([]),
     getTopCast(item.tmdb_id, tmdbMediaType),
-    getLibraryTitleKeys([{ tmdbId: item.tmdb_id, type: item.type }]),
+    getMediaItemIdByTmdbId(supabase, user.id, item.tmdb_kind, item.tmdb_id),
   ])
 
   return (
@@ -200,7 +203,7 @@ export default async function PublicMediaDetailPage({ params }: PublicMediaDetai
             </Badge>
             <ProfileAddToLibraryControl
               item={item}
-              initialAdded={initialAddedKeys.length > 0}
+              myMediaItemId={myMediaItemId}
               className="h-7 gap-1.5 px-2.5 text-xs"
             />
           </div>
