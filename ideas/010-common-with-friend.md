@@ -4,7 +4,7 @@ slug: common-with-friend
 lens: недожатая социалка
 value: medium
 cost: M
-status: planned
+status: done
 created: 2026-09-24
 ---
 
