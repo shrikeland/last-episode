@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# All runs hit production with the same test user: TC-AUTH-010 signs out globally and
+# TC-LIB-004 deletes a title, so parallel runs break each other — queue them instead.
+concurrency:
+  group: e2e-production
+  cancel-in-progress: false
+
 jobs:
   e2e:
     name: Playwright (chromium)
