@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddToLibraryDialog, type AddToLibraryState } from '@/components/library/AddToLibraryDialog'
+import { RelatedTitleDialog } from '@/components/media/RelatedTitleDialog'
 import { addMediaItem } from '@/app/actions/tmdb'
 import { MEDIA_TYPE_LABELS, type CreateMediaItemOptions, type MediaStatus, type MediaType } from '@/types'
 
@@ -36,20 +37,23 @@ export interface TitleRecommendationItem {
 
 interface TitleRecommendationsProps {
   items: TitleRecommendationItem[]
-  initialAddedIds: number[]
+  /** tmdb_id → внутренний id уже добавленных в библиотеку тайтлов */
+  libraryItemIds: Record<number, string>
 }
 
 function TitleRecommendationCard({
   item,
-  initialAdded,
+  initialLibraryId,
 }: {
   item: TitleRecommendationItem
-  initialAdded: boolean
+  initialLibraryId: string | null
 }) {
-  const [state, setState] = useState<AddToLibraryState>(initialAdded ? 'added' : 'idle')
+  const [state, setState] = useState<AddToLibraryState>(initialLibraryId ? 'added' : 'idle')
+  const [libraryId, setLibraryId] = useState<string | null>(initialLibraryId)
   const [status, setStatus] = useState<MediaStatus>('planned')
   const [rating, setRating] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   async function handleAdd() {
     setState('loading')
@@ -58,6 +62,7 @@ function TitleRecommendationCard({
 
     if (result.success) {
       setState('added')
+      setLibraryId(result.id ?? null)
       setOpen(false)
       toast.success(`«${item.title}» добавлен в коллекцию`)
       return
@@ -73,30 +78,48 @@ function TitleRecommendationCard({
     toast.error(ERROR_MESSAGES[result.error ?? 'db_error'])
   }
 
+  function handleAddFromDetails() {
+    setDetailsOpen(false)
+    setOpen(true)
+  }
+
   return (
     <div className="group flex min-w-[150px] max-w-[170px] flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/40">
       <div className="relative aspect-[2/3] bg-secondary">
-        {item.posterUrl ? (
-          <Image
-            src={item.posterUrl}
-            alt={item.title}
-            fill
-            className="object-cover"
-            sizes="170px"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <Film className="h-10 w-10 text-muted-foreground/30" />
-          </div>
-        )}
-        <Badge className="absolute left-2 top-2 border-0 bg-black/60 text-[10px] text-white backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={() => setDetailsOpen(true)}
+          aria-label={`О чём «${item.title}»`}
+          className="absolute inset-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {item.posterUrl ? (
+            <Image
+              src={item.posterUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="170px"
+            />
+          ) : (
+            <span className="flex h-full items-center justify-center">
+              <Film className="h-10 w-10 text-muted-foreground/30" />
+            </span>
+          )}
+        </button>
+        <Badge className="pointer-events-none absolute left-2 top-2 border-0 bg-black/60 text-[10px] text-white backdrop-blur-sm">
           {SOURCE_LABELS[item.source]}
         </Badge>
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="min-h-[58px] space-y-1">
-          <p className="line-clamp-2 text-sm font-semibold leading-tight">{item.title}</p>
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            className="block w-full cursor-pointer text-left text-sm font-semibold leading-tight transition-colors hover:text-primary focus-visible:underline focus-visible:outline-none"
+          >
+            <span className="line-clamp-2">{item.title}</span>
+          </button>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">{MEDIA_TYPE_LABELS[item.type]}</span>
             {item.releaseYear != null && (
@@ -129,6 +152,16 @@ function TitleRecommendationCard({
         </Button>
       </div>
 
+      <RelatedTitleDialog
+        item={item}
+        sourceLabel={SOURCE_LABELS[item.source]}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        state={state}
+        libraryId={libraryId}
+        onAdd={handleAddFromDetails}
+      />
+
       <AddToLibraryDialog
         title={item.title}
         type={item.type}
@@ -147,10 +180,8 @@ function TitleRecommendationCard({
   )
 }
 
-export function TitleRecommendations({ items, initialAddedIds }: TitleRecommendationsProps) {
+export function TitleRecommendations({ items, libraryItemIds }: TitleRecommendationsProps) {
   if (items.length === 0) return null
-
-  const addedIds = new Set(initialAddedIds)
 
   return (
     <section className="space-y-3" aria-labelledby="title-recommendations-heading">
@@ -169,7 +200,7 @@ export function TitleRecommendations({ items, initialAddedIds }: TitleRecommenda
           <TitleRecommendationCard
             key={item.tmdbId}
             item={item}
-            initialAdded={addedIds.has(item.tmdbId)}
+            initialLibraryId={libraryItemIds[item.tmdbId] ?? null}
           />
         ))}
       </div>

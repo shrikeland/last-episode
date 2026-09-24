@@ -62,11 +62,13 @@ export default async function MediaDetailPage({ params }: PageProps) {
   const { data: existingRows } = relatedIds.length > 0
     ? await supabase
         .from('media_items')
-        .select('tmdb_id')
+        .select('id, tmdb_id')
         .eq('user_id', user.id)
         .in('tmdb_id', relatedIds)
     : { data: [] }
-  const existingRelatedIds = ((existingRows ?? []) as { tmdb_id: number }[]).map((row) => row.tmdb_id)
+  const libraryItemIds: Record<number, string> = Object.fromEntries(
+    ((existingRows ?? []) as { id: string; tmdb_id: number }[]).map((row) => [row.tmdb_id, row.id])
+  )
   const recommendationItems: TitleRecommendationItem[] = related.map((relatedItem) => ({
     tmdbId: relatedItem.tmdb_id,
     title: relatedItem.title,
@@ -152,7 +154,7 @@ export default async function MediaDetailPage({ params }: PageProps) {
 
           <TitleRecommendations
             items={recommendationItems}
-            initialAddedIds={existingRelatedIds}
+            libraryItemIds={libraryItemIds}
           />
 
           {/* Progress (tv/anime only) */}
