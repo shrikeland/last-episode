@@ -3,9 +3,10 @@ import { type Page, type Locator, expect } from '@playwright/test'
 export class LibraryPage {
   constructor(private readonly page: Page) {}
 
-  async goto(search?: string) {
-    const url = search ? `/library?search=${encodeURIComponent(search)}` : '/library'
-    await this.page.goto(url, { waitUntil: 'networkidle' })
+  /** A string is the text filter; an object is passed as query params (e.g. { type: 'tv' }). */
+  async goto(params?: string | Record<string, string>) {
+    const query = new URLSearchParams(typeof params === 'string' ? { search: params } : params).toString()
+    await this.page.goto(query ? `/library?${query}` : '/library', { waitUntil: 'networkidle' })
   }
 
   async waitForCards(timeout = 15000): Promise<Locator> {

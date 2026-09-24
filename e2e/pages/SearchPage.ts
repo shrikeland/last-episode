@@ -64,6 +64,27 @@ export class SearchPage {
     await this.assertFirstCardAdded()
   }
 
+  /**
+   * Adds a specific TMDB title with the default status unless it's already in the library.
+   * Matched by TMDB kind + id, not by position: /search/multi ranks results differently over time.
+   * (movie and tv ids are separate sequences in TMDB, hence the kind.)
+   */
+  async ensureAdded(query: string, kind: 'movie' | 'tv', tmdbId: number) {
+    await this.goto()
+    await this.search(query)
+    const card = this.page.getByTestId(`tmdb-result-card-${kind}-${tmdbId}`)
+    await card.waitFor({ state: 'visible', timeout: 15000 })
+    const addButton = card.getByRole('button', { name: 'Добавить' })
+    const addedButton = card.getByRole('button', { name: 'Добавлено' })
+    await expect(addButton.or(addedButton)).toBeVisible()
+    if (await addButton.isVisible()) {
+      await addButton.click()
+      await this.assertDialogOpen()
+      await this.confirmAdd()
+    }
+    await expect(addedButton).toBeVisible({ timeout: 15000 })
+  }
+
   async assertFirstCardAdded() {
     const card = this.firstResultCard()
     await expect(card.getByRole('button', { name: 'Добавлено' })).toBeVisible({ timeout: 10000 })
