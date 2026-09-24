@@ -14,7 +14,9 @@ Tests run automatically on every push to `main` and on pull requests via `.githu
 | `TEST_USER_PASSWORD` | Password of the test account |
 | `VERCEL_BYPASS_SECRET` | Vercel → Project → Settings → Deployment Protection → Protection Bypass for Automation |
 
-Add secrets at: **GitHub → Repository → Settings → Secrets and variables → Actions**
+They are **environment secrets** of the `Production` environment (**GitHub → Repository → Settings → Environments → Production**),
+not repository secrets — the job declares `environment: { name: Production, deployment: false }` to read them.
+If they come through empty, `support/global-setup.ts` fails the CI run in seconds instead of letting every login time out.
 
 ---
 
