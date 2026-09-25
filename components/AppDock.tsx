@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Film, Search, BarChart2, Sparkles, Users } from 'lucide-react'
 import Dock, { type DockItemData } from '@/components/ui/Dock'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const ICON_SIZE = 20
+const DOCK_ROUTES = ['/library', '/search', '/stats', '/recommendations', '/community']
 
 interface AppDockProps {
   username: string
@@ -16,6 +18,12 @@ export function AppDock({ username: _username, pendingRequestsCount = 0 }: AppDo
   const pathname = usePathname()
   const router = useRouter()
   const { accent } = useTheme()
+
+  // Пункты дока — router.push, а не <Link>, поэтому сами не префетчатся. Страницы force-dynamic:
+  // префетч грузит оболочку до loading.tsx, и по клику скелетон появляется сразу
+  useEffect(() => {
+    DOCK_ROUTES.forEach((route) => router.prefetch(route))
+  }, [router])
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
