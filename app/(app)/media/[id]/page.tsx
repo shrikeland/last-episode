@@ -42,29 +42,47 @@ export default async function MediaDetailPage({ params }: PageProps) {
   const genres = [...new Set(item.genres.flatMap(toCanonicalGenres))]
   const tmdbMediaType = isSeries ? 'tv' : 'movie'
 
-  const syncPromise = isSeries
-    ? getTVDetails(item.tmdb_id, item.type)
-        .then((details) => details.seasons?.length
-          ? syncSeasonsAndEpisodes(supabase, item.id, details.seasons)
-          : undefined
-        )
-        .catch((error) => {
+  // Сезоны из БД и TMDB читаем параллельно, затем пишем только разницу (обычно ничего).
+  // Ошибка TMDB не ломает страницу — показываем то, что уже есть в БД
+  const seasonsPromise = isSeries
+    ? Promise.all([
+        getSeasonsWithEpisodes(supabase, item.id),
+        getTVDetails(item.tmdb_id, item.type).catch((error) => {
+          console.error('[media/tv-details]', error)
+          return null
+        }),
+      ]).then(async ([stored, details]) => {
+        if (!details?.seasons?.length) return stored
+        try {
+          const changed = await syncSeasonsAndEpisodes(
+            supabase,
+            item.id,
+            details.seasons,
+            stored,
+            item.status === 'completed'
+          )
+          return changed ? await getSeasonsWithEpisodes(supabase, item.id) : stored
+        } catch (error) {
           console.error('[media/sync-seasons]', error)
-        })
-    : Promise.resolve()
+          return stored
+        }
+      })
+    : Promise.resolve([])
 
-  const [cast, related, friendsOnTitle] = await Promise.all([
+  const relatedPromise = getRelatedTitles(item.tmdb_id, item.type)
+
+  const [cast, related, friendsOnTitle, seasons, libraryItemIds] = await Promise.all([
     getTopCast(item.tmdb_id, tmdbMediaType),
-    getRelatedTitles(item.tmdb_id, item.type),
+    relatedPromise,
     getFriendsWithTitle(supabase, user.id, item.tmdb_kind, item.tmdb_id),
+    seasonsPromise,
+    relatedPromise.then((relatedItems) =>
+      getLibraryItemIds(
+        relatedItems.map((relatedItem) => ({ tmdbId: relatedItem.tmdb_id, type: relatedItem.type }))
+      )
+    ),
   ])
 
-  await syncPromise
-
-  const seasons = isSeries ? await getSeasonsWithEpisodes(supabase, id) : []
-  const libraryItemIds = await getLibraryItemIds(
-    related.map((relatedItem) => ({ tmdbId: relatedItem.tmdb_id, type: relatedItem.type }))
-  )
   const recommendationItems: TitleRecommendationItem[] = related.map((relatedItem) => ({
     tmdbId: relatedItem.tmdb_id,
     title: relatedItem.title,

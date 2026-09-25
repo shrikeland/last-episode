@@ -24,92 +24,112 @@ async function isCompletedMediaItem(client: Client, mediaItemId: string): Promis
   return (data as { status: string } | null)?.status === 'completed'
 }
 
+/**
+ * Сверяет сезоны/эпизоды из TMDB с уже прочитанными из БД (`existing`) и пишет только разницу:
+ * не больше трёх запросов на тайтл, а если ничего не поменялось — ни одного.
+ * Возвращает true, если что-то записала (тогда вызывающему нужно перечитать сезоны).
+ */
 export async function syncSeasonsAndEpisodes(
   client: Client,
   mediaItemId: string,
-  seasons: TmdbSeason[]
-): Promise<void> {
-  // watched_at stays null: the real watch date is unknown, and a sync-time stamp
-  // would pile every episode onto one day in the /stats watch timeline.
-  const markNewEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
+  seasons: TmdbSeason[],
+  existing: SeasonWithEpisodes[],
+  markNewEpisodesWatched: boolean
+): Promise<boolean> {
+  const existingByNumber = new Map(existing.map((season) => [season.season_number, season]))
+  const seasonIds = new Map(existing.map((season) => [season.season_number, season.id]))
 
-  for (const season of seasons) {
-    const { data: seasonData, error: seasonError } = await client
-      .from('seasons')
-      .upsert(
-        {
-          media_item_id: mediaItemId,
-          tmdb_season_id: season.tmdb_season_id,
-          season_number: season.season_number,
-          name: season.name,
-          episode_count: season.episode_count,
-        },
-        { onConflict: 'media_item_id,season_number' }
+  const seasonRows = seasons
+    .filter((season) => {
+      const current = existingByNumber.get(season.season_number)
+      return (
+        !current ||
+        current.name !== season.name ||
+        current.episode_count !== season.episode_count ||
+        current.tmdb_season_id !== season.tmdb_season_id
       )
-      .select('id')
-      .single()
+    })
+    .map((season) => ({
+      media_item_id: mediaItemId,
+      tmdb_season_id: season.tmdb_season_id,
+      season_number: season.season_number,
+      name: season.name,
+      episode_count: season.episode_count,
+    }))
+
+  if (seasonRows.length > 0) {
+    const { data: upserted, error: seasonError } = await client
+      .from('seasons')
+      .upsert(seasonRows, { onConflict: 'media_item_id,season_number' })
+      .select('id, season_number')
 
     if (seasonError) throw seasonError
-    if (!seasonData || season.episodes.length === 0) continue
+    for (const row of (upserted ?? []) as { id: string; season_number: number }[]) {
+      seasonIds.set(row.season_number, row.id)
+    }
+  }
 
+  const newEpisodeRows = []
+  const changedEpisodeRows = []
+
+  for (const season of seasons) {
+    const seasonId = seasonIds.get(season.season_number)
+    if (!seasonId) continue
+
+    const currentEpisodes = new Map(
+      (existingByNumber.get(season.season_number)?.episodes ?? []).map((episode) => [
+        episode.episode_number,
+        episode,
+      ])
+    )
     const episodesByNumber = new Map(
       season.episodes.map((episode) => [episode.episode_number, episode])
     )
-    const episodes = Array.from(episodesByNumber.values())
 
-    const { data: existingEpisodes, error: existingEpisodesError } = await client
-      .from('episodes')
-      .select('id, episode_number')
-      .eq('season_id', seasonData.id)
-      .in(
-        'episode_number',
-        episodes.map((episode) => episode.episode_number)
-      )
-
-    if (existingEpisodesError) throw existingEpisodesError
-
-    const existingEpisodeNumbers = new Set(
-      ((existingEpisodes ?? []) as { episode_number: number }[]).map(
-        (episode) => episode.episode_number
-      )
-    )
-
-    const newEpisodeRows = episodes
-      .filter((episode) => !existingEpisodeNumbers.has(episode.episode_number))
-      .map((episode) => ({
-        season_id: seasonData.id,
-        tmdb_episode_id: episode.tmdb_episode_id,
-        episode_number: episode.episode_number,
-        name: episode.name,
-        runtime_minutes: episode.runtime_minutes,
-        is_watched: markNewEpisodesWatched,
-        watched_at: null,
-      }))
-
-    if (newEpisodeRows.length > 0) {
-      const { error: insertEpisodesError } = await client
-        .from('episodes')
-        .insert(newEpisodeRows)
-
-      if (insertEpisodesError) throw insertEpisodesError
-    }
-
-    for (const episode of episodes) {
-      if (!existingEpisodeNumbers.has(episode.episode_number)) continue
-
-      const { error: updateEpisodeError } = await client
-        .from('episodes')
-        .update({
+    for (const episode of episodesByNumber.values()) {
+      const current = currentEpisodes.get(episode.episode_number)
+      if (!current) {
+        // watched_at stays null: the real watch date is unknown, and a sync-time stamp
+        // would pile every episode onto one day in the /stats watch timeline.
+        newEpisodeRows.push({
+          season_id: seasonId,
+          tmdb_episode_id: episode.tmdb_episode_id,
+          episode_number: episode.episode_number,
+          name: episode.name,
+          runtime_minutes: episode.runtime_minutes,
+          is_watched: markNewEpisodesWatched,
+          watched_at: null,
+        })
+      } else if (
+        current.name !== episode.name ||
+        current.runtime_minutes !== episode.runtime_minutes ||
+        current.tmdb_episode_id !== episode.tmdb_episode_id
+      ) {
+        // Только метаданные: is_watched / watched_at / is_filler в upsert не попадают и не меняются
+        changedEpisodeRows.push({
+          season_id: seasonId,
+          episode_number: episode.episode_number,
           tmdb_episode_id: episode.tmdb_episode_id,
           name: episode.name,
           runtime_minutes: episode.runtime_minutes,
         })
-        .eq('season_id', seasonData.id)
-        .eq('episode_number', episode.episode_number)
-
-      if (updateEpisodeError) throw updateEpisodeError
+      }
     }
   }
+
+  if (newEpisodeRows.length > 0) {
+    const { error } = await client.from('episodes').insert(newEpisodeRows)
+    if (error) throw error
+  }
+
+  if (changedEpisodeRows.length > 0) {
+    const { error } = await client
+      .from('episodes')
+      .upsert(changedEpisodeRows, { onConflict: 'season_id,episode_number' })
+    if (error) throw error
+  }
+
+  return seasonRows.length > 0 || newEpisodeRows.length > 0 || changedEpisodeRows.length > 0
 }
 
 export async function createSeasonsAndEpisodes(
@@ -155,30 +175,18 @@ export async function getSeasonsWithEpisodes(
   client: Client,
   mediaItemId: string
 ): Promise<SeasonWithEpisodes[]> {
+  // Один запрос вместо 1 + N: эпизоды вложены в сезоны. max_rows PostgREST режет только
+  // верхний уровень (сезоны), вложенные эпизоды приходят целиком
   const { data: seasons, error: seasonsError } = await client
     .from('seasons')
-    .select('*')
+    .select('*, episodes(*)')
     .eq('media_item_id', mediaItemId)
     .order('season_number', { ascending: true })
+    .order('episode_number', { referencedTable: 'episodes', ascending: true })
 
   if (seasonsError || !seasons) return []
 
-  const typedSeasons = seasons as Season[]
-
-  const episodeResults = await Promise.all(
-    typedSeasons.map((season) =>
-      client
-        .from('episodes')
-        .select('*')
-        .eq('season_id', season.id)
-        .order('episode_number', { ascending: true })
-    )
-  )
-
-  return typedSeasons.map((season, i) => ({
-    ...season,
-    episodes: episodeResults[i].error ? [] : (episodeResults[i].data as Episode[]),
-  }))
+  return seasons as unknown as SeasonWithEpisodes[]
 }
 
 export async function toggleEpisodeWatched(
