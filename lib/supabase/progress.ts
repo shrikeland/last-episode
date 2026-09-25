@@ -312,34 +312,26 @@ export async function hasPlannedSeasons(
   client: Client,
   mediaItemId: string
 ): Promise<boolean> {
+  // episodes(count) — агрегат на стороне PostgREST: число созданных серий по сезону одним запросом
   const { data: seasons, error: seasonsError } = await client
     .from('seasons')
-    .select('id, episode_count')
+    .select('id, episode_count, episodes(count)')
     .eq('media_item_id', mediaItemId)
 
   if (seasonsError) throw seasonsError
   if (!seasons || seasons.length === 0) return false
 
-  const seasonRows = seasons as { id: string; episode_count: number }[]
+  const seasonRows = seasons as unknown as {
+    id: string
+    episode_count: number
+    episodes: { count: number }[]
+  }[]
   if (seasonRows.some((season) => season.episode_count > 0) === false) {
     return seasonRows.some((season) => season.episode_count === 0)
   }
 
-  const seasonIds = seasonRows.map((season) => season.id)
-  const { data: episodeCounts, error: episodesError } = await client
-    .from('episodes')
-    .select('season_id')
-    .in('season_id', seasonIds)
-
-  if (episodesError) throw episodesError
-
-  const createdBySeason = new Map<string, number>()
-  for (const episode of (episodeCounts ?? []) as { season_id: string }[]) {
-    createdBySeason.set(episode.season_id, (createdBySeason.get(episode.season_id) ?? 0) + 1)
-  }
-
   return seasonRows.some((season) => {
-    const createdCount = createdBySeason.get(season.id) ?? 0
+    const createdCount = season.episodes[0]?.count ?? 0
     return createdCount === 0 || season.episode_count > createdCount
   })
 }
