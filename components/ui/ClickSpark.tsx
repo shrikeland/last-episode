@@ -32,36 +32,23 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sparksRef = useRef<Spark[]>([])
+  const animationIdRef = useRef<number | null>(null)
+  const drawRef = useRef<(timestamp: number) => void>(() => {})
 
+  // Canvas размером с экран (fixed), а не со всю страницу: на длинной библиотеке
+  // полностраничный canvas весил десятки мегабайт и очищался каждый кадр
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const parent = canvas.parentElement
-    if (!parent) return
-
-    let resizeTimeout: ReturnType<typeof setTimeout>
 
     const resizeCanvas = () => {
-      const { width, height } = parent.getBoundingClientRect()
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width
-        canvas.height = height
-      }
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
     }
 
-    const handleResize = () => {
-      clearTimeout(resizeTimeout)
-      resizeTimeout = setTimeout(resizeCanvas, 100)
-    }
-
-    const ro = new ResizeObserver(handleResize)
-    ro.observe(parent)
     resizeCanvas()
-
-    return () => {
-      ro.disconnect()
-      clearTimeout(resizeTimeout)
-    }
+    window.addEventListener('resize', resizeCanvas)
+    return () => window.removeEventListener('resize', resizeCanvas)
   }, [])
 
   const easeFunc = useCallback(
@@ -76,13 +63,11 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
     [easing]
   )
 
+  // Цикл крутится только пока есть искры: стартует по клику, останавливается, когда все догорели
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let animationId: number
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
 
     const draw = (timestamp: number) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -111,34 +96,35 @@ const ClickSpark: React.FC<ClickSparkProps> = ({
         return true
       })
 
-      animationId = requestAnimationFrame(draw)
+      animationIdRef.current =
+        sparksRef.current.length > 0 ? requestAnimationFrame(draw) : null
     }
 
-    animationId = requestAnimationFrame(draw)
-    return () => cancelAnimationFrame(animationId)
-  }, [sparkColor, sparkSize, sparkRadius, sparkCount, duration, easeFunc, extraScale])
+    drawRef.current = draw
+    return () => {
+      if (animationIdRef.current !== null) cancelAnimationFrame(animationIdRef.current)
+      animationIdRef.current = null
+    }
+  }, [sparkColor, sparkSize, sparkRadius, duration, easeFunc, extraScale])
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
     const now = performance.now()
     const newSparks: Spark[] = Array.from({ length: sparkCount }, (_, i) => ({
-      x,
-      y,
+      x: e.clientX,
+      y: e.clientY,
       angle: (2 * Math.PI * i) / sparkCount,
       startTime: now,
     }))
 
     sparksRef.current.push(...newSparks)
+    if (animationIdRef.current === null) {
+      animationIdRef.current = requestAnimationFrame(drawRef.current)
+    }
   }
 
   return (
     <div className="relative w-full min-h-screen" onClick={handleClick}>
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-50" />
+      <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-50" />
       {children}
     </div>
   )

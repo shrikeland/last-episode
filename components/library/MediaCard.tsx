@@ -43,13 +43,19 @@ const TYPE_LABELS_SHORT: Record<string, string> = {
   animation: 'Мульт',
 }
 
+function setTilt(el: HTMLElement, rx: number, ry: number, gx: number, gy: number, go: number) {
+  el.style.setProperty('--rx', String(rx))
+  el.style.setProperty('--ry', String(ry))
+  el.style.setProperty('--gx', String(gx))
+  el.style.setProperty('--gy', String(gy))
+  el.style.setProperty('--go', String(go))
+}
+
 export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
   const router = useRouter()
   const { accent } = useTheme()
   const [isDeleting, setIsDeleting] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [rot, setRot] = useState({ x: 0, y: 0 })
-  const [glare, setGlare] = useState({ x: 50, y: 50, o: 0 })
   const cardRef = useRef<HTMLDivElement>(null)
   const animRef = useRef<number | null>(null)
 
@@ -68,18 +74,15 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
       const r = el.getBoundingClientRect()
       const cx = (e.clientX - r.left) / r.width - 0.5
       const cy = (e.clientY - r.top) / r.height - 0.5
-      setRot({ x: cy * -10, y: cx * 10 })
-      setGlare({
-        x: ((e.clientX - r.left) / r.width) * 100,
-        y: ((e.clientY - r.top) / r.height) * 100,
-        o: 0.12,
-      })
+      // Наклон и блик пишем CSS-переменными прямо в DOM: без setState карточка
+      // не ререндерится на каждое движение мыши
+      setTilt(el, cy * -10, cx * 10, (cx + 0.5) * 100, (cy + 0.5) * 100, 0.12)
     })
   }, [])
 
   const onLeave = useCallback(() => {
-    setRot({ x: 0, y: 0 })
-    setGlare({ x: 50, y: 50, o: 0 })
+    if (animRef.current) cancelAnimationFrame(animRef.current)
+    if (cardRef.current) setTilt(cardRef.current, 0, 0, 50, 50, 0)
     setHovered(false)
   }, [])
 
@@ -107,7 +110,7 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
         overflow: 'hidden',
         cursor: 'pointer',
         animation: `cardIn 480ms ${index * 42}ms both cubic-bezier(0.34,1.56,0.64,1)`,
-        transform: `perspective(900px) rotateX(${rot.x}deg) rotateY(${rot.y}deg) scale(${hovered ? 1.02 : 1})`,
+        transform: `perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)) scale(${hovered ? 1.02 : 1})`,
         transition: hovered
           ? 'box-shadow 0.15s, border-color 0.15s'
           : 'transform 480ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s, border-color 0.4s',
@@ -145,7 +148,7 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
             position: 'relative',
             paddingBottom: '150%',
             background: 'hsl(213 50% 8%)',
-            transform: hovered ? `translate(${rot.y * 0.22}px, ${rot.x * -0.22}px)` : 'none',
+            transform: hovered ? 'translate(calc(var(--ry, 0) * 0.22px), calc(var(--rx, 0) * -0.22px))' : 'none',
             transition: hovered ? 'none' : 'transform 480ms cubic-bezier(0.34,1.56,0.64,1)',
             overflow: 'hidden',
           }}
@@ -156,7 +159,7 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
               alt={item.title}
               fill
               className="object-cover"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              sizes="(max-width: 640px) 50vw, 220px"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -367,7 +370,7 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
           position: 'absolute',
           inset: 0,
           borderRadius: 10,
-          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,${glare.o}) 0%, transparent 50%)`,
+          background: 'radial-gradient(circle at calc(var(--gx, 50) * 1%) calc(var(--gy, 50) * 1%), rgba(255,255,255,var(--go, 0)) 0%, transparent 50%)',
           pointerEvents: 'none',
           zIndex: 20,
           mixBlendMode: 'overlay',

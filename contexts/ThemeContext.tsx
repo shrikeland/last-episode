@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 const NARUTO_ACCENT = '#E8873A'
 const SASUKE_ACCENT = '#7C6FF7'
@@ -35,14 +35,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggle = useCallback(() => setIsSasuke(p => !p), [])
 
+  // Стабильный объект: иначе каждый ререндер провайдера перерисовывает всех useTheme()
+  const value = useMemo(
+    () => ({ isSasuke, toggle, accent: isSasuke ? SASUKE_ACCENT : NARUTO_ACCENT }),
+    [isSasuke, toggle]
+  )
+
   return (
-    <ThemeContext.Provider
-      value={{
-        isSasuke,
-        toggle,
-        accent: isSasuke ? SASUKE_ACCENT : NARUTO_ACCENT,
-      }}
-    >
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   )
