@@ -12,7 +12,7 @@ test('TC-REC-003: unauthenticated /recommendations redirects to /login', async (
   await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
 })
 
-authTest('TC-REC-001: recommendations page loads with questionnaire', async ({ authenticatedPage: page }) => {
+authTest('TC-REC-001: recommendations page loads with questionnaire', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   await page.goto('/recommendations', { waitUntil: 'networkidle' })
   // Page should show some content — either questionnaire or past recommendations

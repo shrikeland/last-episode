@@ -38,7 +38,7 @@ authTest('TC-MEDIA-001: detail page loads with title and status select', async (
   await expect(page.locator('h1').first()).toBeVisible()
 })
 
-authTest('TC-MEDIA-002: changing status is reflected in the select', async ({ authenticatedPage: page }) => {
+authTest('TC-MEDIA-002: changing status is reflected in the select', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   const library = new LibraryPage(page)
   await library.goto()
@@ -53,7 +53,7 @@ authTest('TC-MEDIA-002: changing status is reflected in the select', async ({ au
   await expect(media.statusSelect).toContainText('Смотрю', { timeout: 5000 })
 })
 
-authTest('TC-MEDIA-003: toggling episode checkbox changes checked state', async ({ authenticatedPage: page }) => {
+authTest('TC-MEDIA-003: toggling episode checkbox changes checked state', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
 
   // Needs a TV show (season accordion). The unfiltered library opens with movies,

@@ -25,7 +25,7 @@ test('TC-LIB-007: unauthenticated /library redirects to /login', async ({ page }
 
 // ─── Authenticated library tests ─────────────────────────────────────────────
 
-authTest('TC-LIB-001: library page shows media cards', async ({ authenticatedPage: page }) => {
+authTest('TC-LIB-001: library page shows media cards', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   const library = new LibraryPage(page)
   await library.goto()
@@ -70,7 +70,7 @@ authTest('TC-LIB-005: cancel delete keeps card in library', async ({ authenticat
   expect(countAfter).toBe(countBefore)
 })
 
-authTest('TC-LIB-006: clicking card navigates to /media/[id]', async ({ authenticatedPage: page }) => {
+authTest('TC-LIB-006: clicking card navigates to /media/[id]', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   const library = new LibraryPage(page)
   await library.goto()

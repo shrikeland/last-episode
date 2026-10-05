@@ -23,7 +23,7 @@ test('TC-SEARCH-008: unauthenticated /search redirects to /login', async ({ page
 
 // ─── Authenticated search tests ───────────────────────────────────────────────
 
-authTest('TC-SEARCH-001: search returns results for valid query', async ({ authenticatedPage: page }) => {
+authTest('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   const search = new SearchPage(page)
   await search.goto()
@@ -55,7 +55,7 @@ authTest('TC-SEARCH-003: clear button resets query and results', async ({ authen
   await expect(page.getByRole('button', { name: 'Очистить поиск' })).not.toBeVisible()
 })
 
-authTest('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', async ({ authenticatedPage: page }) => {
+authTest('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   const search = new SearchPage(page)
   await search.goto()

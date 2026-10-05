@@ -13,7 +13,7 @@ test('TC-COMM-003: unauthenticated /community redirects to /login', async ({ pag
   await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
 })
 
-authTest('TC-COMM-001: community page loads with user search input', async ({ authenticatedPage: page }) => {
+authTest('TC-COMM-001: community page loads with user search input', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   await page.goto('/community', { waitUntil: 'networkidle' })
   await expect(page.getByPlaceholder('Найти пользователя по логину...')).toBeVisible({ timeout: 15000 })
