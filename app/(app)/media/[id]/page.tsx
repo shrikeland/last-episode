@@ -1,21 +1,21 @@
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { getMediaItemById } from '@/lib/supabase/media'
-import { getSeasonsWithEpisodes, syncSeasonsAndEpisodes } from '@/lib/supabase/progress'
-import { getFriendsWithTitle } from '@/lib/supabase/friends'
 import { Badge, badgeVariants } from '@/components/ui/badge'
 import { BackButton } from '@/components/media/BackButton'
 import { MediaPoster } from '@/components/media/MediaPoster'
 import { StatusSelect } from '@/components/media/StatusSelect'
 import { RatingInput } from '@/components/media/RatingInput'
 import { NotesEditor } from '@/components/media/NotesEditor'
-import { SeasonAccordion } from '@/components/media/SeasonAccordion'
-import { CastList } from '@/components/media/CastList'
-import { TitleRecommendations, type TitleRecommendationItem } from '@/components/media/TitleRecommendations'
-import { FriendsOnTitle } from '@/components/media/FriendsOnTitle'
-import { buildPosterUrl, getRelatedTitles, getTopCast, getTVDetails } from '@/lib/tmdb/tmdb.service'
-import { getLibraryItemIds } from '@/app/actions/tmdb'
+import {
+  CastSection,
+  FriendsSection,
+  RecommendationsSection,
+  SeasonsSection,
+  SectionSkeleton,
+} from '@/components/media/MediaDetailSections'
 import { MEDIA_TYPE_LABELS } from '@/types'
 import { capitalizeGenre, toCanonicalGenres } from '@/lib/genres'
 import { cn } from '@/lib/utils'
@@ -40,40 +40,6 @@ export default async function MediaDetailPage({ params }: PageProps) {
   // Бейджи — канонические жанры, как в фильтре библиотеки: сериальный «Боевик и Приключения»
   // раскладывается на «Боевик» и «Приключения», у каждого своя ссылка. Порядок TMDB сохраняем
   const genres = [...new Set(item.genres.flatMap(toCanonicalGenres))]
-  const tmdbMediaType = isSeries ? 'tv' : 'movie'
-
-  const syncPromise = isSeries
-    ? getTVDetails(item.tmdb_id, item.type)
-        .then((details) => details.seasons?.length
-          ? syncSeasonsAndEpisodes(supabase, item.id, details.seasons)
-          : undefined
-        )
-        .catch((error) => {
-          console.error('[media/sync-seasons]', error)
-        })
-    : Promise.resolve()
-
-  const [cast, related, friendsOnTitle] = await Promise.all([
-    getTopCast(item.tmdb_id, tmdbMediaType),
-    getRelatedTitles(item.tmdb_id, item.type),
-    getFriendsWithTitle(supabase, user.id, item.tmdb_kind, item.tmdb_id),
-  ])
-
-  await syncPromise
-
-  const seasons = isSeries ? await getSeasonsWithEpisodes(supabase, id) : []
-  const libraryItemIds = await getLibraryItemIds(
-    related.map((relatedItem) => ({ tmdbId: relatedItem.tmdb_id, type: relatedItem.type }))
-  )
-  const recommendationItems: TitleRecommendationItem[] = related.map((relatedItem) => ({
-    tmdbId: relatedItem.tmdb_id,
-    title: relatedItem.title,
-    type: relatedItem.type,
-    posterUrl: buildPosterUrl(relatedItem.poster_path),
-    releaseYear: relatedItem.release_year,
-    overview: relatedItem.overview,
-    source: relatedItem.source,
-  }))
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -133,7 +99,9 @@ export default async function MediaDetailPage({ params }: PageProps) {
             />
           </div>
 
-          <FriendsOnTitle entries={friendsOnTitle} />
+          <Suspense fallback={null}>
+            <FriendsSection userId={user.id} item={item} />
+          </Suspense>
 
           {/* Overview */}
           {item.overview && (
@@ -142,7 +110,9 @@ export default async function MediaDetailPage({ params }: PageProps) {
             </p>
           )}
 
-          <CastList cast={cast} />
+          <Suspense fallback={<SectionSkeleton className="h-28" />}>
+            <CastSection tmdbId={item.tmdb_id} isSeries={isSeries} />
+          </Suspense>
 
           {/* Notes */}
           <NotesEditor
@@ -150,19 +120,15 @@ export default async function MediaDetailPage({ params }: PageProps) {
             initialNotes={item.notes}
           />
 
-          <TitleRecommendations
-            items={recommendationItems}
-            libraryItemIds={libraryItemIds}
-          />
+          <Suspense fallback={<SectionSkeleton className="h-56" />}>
+            <RecommendationsSection item={item} />
+          </Suspense>
 
           {/* Progress (tv/anime only) */}
-          {isSeries && seasons.length > 0 && (
-            <SeasonAccordion
-              seasons={seasons}
-              mediaItemId={item.id}
-              mediaType={item.type}
-              status={item.status}
-            />
+          {isSeries && (
+            <Suspense fallback={<SectionSkeleton className="h-64" />}>
+              <SeasonsSection item={item} />
+            </Suspense>
           )}
         </div>
       </div>

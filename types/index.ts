@@ -242,5 +242,11 @@ export type Database = {
         Update: never
       }
     }
+    Functions: {
+      get_episode_progress: {
+        Args: { item_ids: string[] }
+        Returns: { media_item_id: string; watched: number; total: number }[]
+      }
+    }
   }
 }

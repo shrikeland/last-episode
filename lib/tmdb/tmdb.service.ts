@@ -4,6 +4,11 @@ const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const TMDB_PROFILE_IMAGE_BASE = 'https://image.tmdb.org/t/p/w185'
 const LANG = 'ru-RU'
+const TIMEOUT_MS = 8000
+const DAY = 60 * 60 * 24
+// Сезоны и эпизоды: страница тайтла сверяет их с БД при каждом открытии — кэш снимает
+// десятки запросов к TMDB на заход, а новая серия появляется с задержкой максимум 6 ч
+const SEASONS_TTL = 60 * 60 * 6
 
 function getApiKey(): string {
   const key = process.env.TMDB_API_KEY
@@ -19,6 +24,14 @@ function buildUrl(path: string, params: Record<string, string> = {}): string {
     url.searchParams.set(k, v)
   }
   return url.toString()
+}
+
+/**
+ * fetch к TMDB с таймаутом: без него зависший TMDB держал рендер страницы без ограничения.
+ * revalidate — секунды в data cache Next, 0 — без кэша (поиск и т.п.)
+ */
+function tmdbFetch(url: string, revalidate: number): Promise<Response> {
+  return fetch(url, { next: { revalidate }, signal: AbortSignal.timeout(TIMEOUT_MS) })
 }
 
 export function buildPosterUrl(posterPath: string | null): string | null {
@@ -55,7 +68,7 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
   if (!query.trim()) return []
 
   const url = buildUrl('/search/multi', { query, include_adult: 'false' })
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const res = await tmdbFetch(url, 0)
 
   if (!res.ok) throw new Error(`TMDB search failed: ${res.status}`)
 
@@ -82,7 +95,7 @@ export async function search(query: string): Promise<TmdbSearchResult[]> {
 
 export async function getMovieDetails(tmdbId: number, type: 'movie' | 'animation' = 'movie'): Promise<TmdbDetails> {
   const url = buildUrl(`/movie/${tmdbId}`)
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const res = await tmdbFetch(url, 0)
   if (!res.ok) throw new Error(`TMDB movie details failed: ${res.status}`)
 
    
@@ -217,9 +230,7 @@ async function getCurrentTitleAliases(
   }
 
   try {
-    const translationsRes = await fetch(buildUrl(`/${mediaType}/${tmdbId}/translations`), {
-      next: { revalidate: 60 * 60 * 24 },
-    })
+    const translationsRes = await tmdbFetch(buildUrl(`/${mediaType}/${tmdbId}/translations`), DAY)
     if (!translationsRes.ok) return aliases
 
     const translations = (await translationsRes.json()) as RawTranslations
@@ -264,7 +275,7 @@ async function fetchRelatedList(
   source: TmdbRelatedTitle['source']
 ): Promise<TmdbRelatedTitle[]> {
   try {
-    const res = await fetch(buildUrl(path), { next: { revalidate: 60 * 60 * 24 } })
+    const res = await tmdbFetch(buildUrl(path), DAY)
     if (!res.ok) return []
 
     const data = (await res.json()) as { results?: RawRelatedResult[]; parts?: RawRelatedResult[] }
@@ -288,7 +299,7 @@ export async function getRelatedTitles(
 
   if (mediaType === 'movie') {
     try {
-      const detailsRes = await fetch(buildUrl(`/movie/${tmdbId}`), { next: { revalidate: 60 * 60 * 24 } })
+      const detailsRes = await tmdbFetch(buildUrl(`/movie/${tmdbId}`), DAY)
       if (detailsRes.ok) {
         currentDetails = (await detailsRes.json()) as RawTitleDetails
         const collectionId = currentDetails.belongs_to_collection?.id
@@ -301,7 +312,7 @@ export async function getRelatedTitles(
     }
   } else {
     try {
-      const detailsRes = await fetch(buildUrl(`/tv/${tmdbId}`), { next: { revalidate: 60 * 60 * 24 } })
+      const detailsRes = await tmdbFetch(buildUrl(`/tv/${tmdbId}`), DAY)
       if (detailsRes.ok) currentDetails = (await detailsRes.json()) as RawTitleDetails
     } catch {
       // Related titles are best-effort and should not block the title page.
@@ -336,7 +347,7 @@ export async function getRelatedTitles(
 
 export async function getCredits(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbCredits> {
   const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const res = await tmdbFetch(url, DAY)
   if (!res.ok) return { director: null, cast: [] }
    
   const data = (await res.json()) as RawCredits
@@ -360,7 +371,7 @@ export async function getTopCast(
 ): Promise<TmdbCastMember[]> {
   try {
     const url = buildUrl(`/${mediaType}/${tmdbId}/credits`)
-    const res = await fetch(url, { next: { revalidate: 0 } })
+    const res = await tmdbFetch(url, DAY)
     if (!res.ok) return []
 
     const data = (await res.json()) as RawCredits
@@ -383,7 +394,7 @@ export async function getTopCast(
 
 export async function getBasicInfo(tmdbId: number, mediaType: 'movie' | 'tv'): Promise<TmdbBasicInfo> {
   const url = buildUrl(`/${mediaType}/${tmdbId}`)
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const res = await tmdbFetch(url, 0)
   if (!res.ok) throw new Error(`TMDB ${mediaType} basic info failed: ${res.status}`)
    
   const r: any = await res.json()
@@ -420,7 +431,7 @@ type RawSeason = { season_number: number; id: number; name: string; episode_coun
 
 export async function getTVDetails(tmdbId: number, type: MediaType): Promise<TmdbDetails> {
   const url = buildUrl(`/tv/${tmdbId}`)
-  const res = await fetch(url, { next: { revalidate: 0 } })
+  const res = await tmdbFetch(url, SEASONS_TTL)
   if (!res.ok) throw new Error(`TMDB tv details failed: ${res.status}`)
 
    
@@ -430,7 +441,7 @@ export async function getTVDetails(tmdbId: number, type: MediaType): Promise<Tmd
 
   const responses = await Promise.all(
     regularSeasons.map(s =>
-      fetch(buildUrl(`/tv/${tmdbId}/season/${s.season_number}`), { next: { revalidate: 0 } })
+      tmdbFetch(buildUrl(`/tv/${tmdbId}/season/${s.season_number}`), SEASONS_TTL)
     )
   )
 

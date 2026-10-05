@@ -3,6 +3,10 @@ import { Renderer, Program, Triangle, Mesh } from 'ogl';
 import './LightRays.css';
 
 const DEFAULT_COLOR = '#ffffff';
+// Лучи мягкие и размытые: retina-разрешение и 60 fps на глаз не отличить,
+// а полноэкранный шейдер при dpr 2 считает вчетверо больше пикселей
+const MAX_DPR = 1;
+const FRAME_INTERVAL_MS = 1000 / 30;
 
 const hexToRgb = hex => {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -55,6 +59,8 @@ const LightRays = ({
   const meshRef = useRef(null);
   const cleanupFunctionRef = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
+  // Цвет читаем из ref: смена темы обновляет uniform, а не пересоздаёт WebGL-контекст
+  const raysColorRef = useRef(raysColor);
   const observerRef = useRef(null);
 
   useEffect(() => {
@@ -94,7 +100,7 @@ const LightRays = ({
       if (!containerRef.current) return;
 
       const renderer = new Renderer({
-        dpr: Math.min(window.devicePixelRatio, 2),
+        dpr: Math.min(window.devicePixelRatio, MAX_DPR),
         alpha: true
       });
       rendererRef.current = renderer;
@@ -217,7 +223,7 @@ void main() {
         rayPos: { value: [0, 0] },
         rayDir: { value: [0, 1] },
 
-        raysColor: { value: hexToRgb(raysColor) },
+        raysColor: { value: hexToRgb(raysColorRef.current) },
         raysSpeed: { value: raysSpeed },
         lightSpread: { value: lightSpread },
         rayLength: { value: rayLength },
@@ -243,7 +249,7 @@ void main() {
       const updatePlacement = () => {
         if (!containerRef.current || !renderer) return;
 
-        renderer.dpr = Math.min(window.devicePixelRatio, 2);
+        renderer.dpr = Math.min(window.devicePixelRatio, MAX_DPR);
 
         const { clientWidth: wCSS, clientHeight: hCSS } = containerRef.current;
         renderer.setSize(wCSS, hCSS);
@@ -259,10 +265,19 @@ void main() {
         uniforms.rayDir.value = dir;
       };
 
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let lastFrame = 0;
+
       const loop = t => {
         if (!rendererRef.current || !uniformsRef.current || !meshRef.current) {
           return;
         }
+
+        if (t - lastFrame < FRAME_INTERVAL_MS) {
+          animationIdRef.current = requestAnimationFrame(loop);
+          return;
+        }
+        lastFrame = t;
 
         uniforms.iTime.value = t * 0.001;
 
@@ -277,7 +292,8 @@ void main() {
 
         try {
           renderer.render({ scene: mesh });
-          animationIdRef.current = requestAnimationFrame(loop);
+          // prefers-reduced-motion: один статичный кадр без анимации
+          animationIdRef.current = reducedMotion ? null : requestAnimationFrame(loop);
         } catch (error) {
           console.warn('WebGL rendering error:', error);
           return;
@@ -329,7 +345,6 @@ void main() {
   }, [
     isVisible,
     raysOrigin,
-    raysColor,
     raysSpeed,
     lightSpread,
     rayLength,
@@ -364,6 +379,11 @@ void main() {
     const { anchor, dir } = getAnchorAndDir(raysOrigin, wCSS * dpr, hCSS * dpr);
     u.rayPos.value = anchor;
     u.rayDir.value = dir;
+
+    // При reduced motion цикла нет — перерисовываем кадр, чтобы новый цвет применился
+    if (!animationIdRef.current && meshRef.current) {
+      renderer.render({ scene: meshRef.current });
+    }
   }, [
     raysColor,
     raysSpeed,
@@ -379,6 +399,10 @@ void main() {
   ]);
 
   useEffect(() => {
+    raysColorRef.current = raysColor;
+  }, [raysColor]);
+
+  useEffect(() => {
     const handleMouseMove = e => {
       if (!containerRef.current || !rendererRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
@@ -388,7 +412,7 @@ void main() {
     };
 
     if (followMouse) {
-      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mousemove', handleMouseMove, { passive: true });
       return () => window.removeEventListener('mousemove', handleMouseMove);
     }
   }, [followMouse]);

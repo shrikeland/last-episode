@@ -1,9 +1,13 @@
 'use client'
 
 import { useTheme } from '@/contexts/ThemeContext'
-import LightRays from '@/components/LightRays.jsx'
+import dynamic from 'next/dynamic'
 import ClickSpark from '@/components/ui/ClickSpark'
 import type { ReactNode } from 'react'
+
+// WebGL-фон (ogl) грузим отдельным чанком после гидратации: он чисто декоративный
+// и не должен задерживать первый рендер
+const LightRays = dynamic(() => import('@/components/LightRays.jsx'), { ssr: false })
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const { accent } = useTheme()
