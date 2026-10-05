@@ -18,20 +18,25 @@ const ThemeContext = createContext<ThemeContextValue>({
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Always start with false (Naruto) to match SSR — useEffect syncs from localStorage after hydration
+  // Always start with false (Naruto) to match SSR — useEffect syncs from localStorage after hydration.
+  // CSS-палитру до гидрации уже выставил THEME_INIT_SCRIPT в app/layout.tsx
   const [isSasuke, setIsSasuke] = useState<boolean>(false)
+  const [synced, setSynced] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('theme-sasuke') === 'true'
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsSasuke(saved)
+    setSynced(true)
   }, [])
 
-  // Keep data-sasuke attribute and localStorage in sync with state
+  // Keep data-sasuke attribute and localStorage in sync with state. До синхронизации не пишем:
+  // иначе первый прогон с false перебил бы атрибут из скрипта и мигнул палитрой Наруто
   useEffect(() => {
+    if (!synced) return
     document.documentElement.setAttribute('data-sasuke', isSasuke ? 'true' : 'false')
     localStorage.setItem('theme-sasuke', String(isSasuke))
-  }, [isSasuke])
+  }, [isSasuke, synced])
 
   const toggle = useCallback(() => setIsSasuke(p => !p), [])
 

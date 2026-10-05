@@ -12,6 +12,11 @@ const onest = Onest({
   display: 'swap',
 })
 
+// Ставит палитру Саске до первой отрисовки: иначе она включалась только после гидрации,
+// и пользователь видел оранжевый акцент, сменяющийся фиолетовым. Синхронизирует ThemeProvider
+const THEME_INIT_SCRIPT =
+  "try{if(localStorage.getItem('theme-sasuke')==='true')document.documentElement.setAttribute('data-sasuke','true')}catch(e){}"
+
 export const metadata: Metadata = {
   title: 'Last Episode',
   description: 'Your personal media tracker — movies, series and anime in one place',
@@ -24,6 +29,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`dark ${onest.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         <ThemeProvider>
           {children}
