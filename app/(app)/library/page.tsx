@@ -5,6 +5,7 @@ import { getContinueWatching } from '@/lib/supabase/progress'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
 import { ContinueWatching } from '@/components/library/ContinueWatching'
+import { RefreshIfStale } from '@/components/library/RefreshIfStale'
 import { MEDIA_TYPE_LABELS, SORT_FIELDS } from '@/types'
 import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField } from '@/types'
 
@@ -77,6 +78,7 @@ export default async function LibraryPage({
 
   return (
     <div className="space-y-6">
+      <RefreshIfStale />
       <div>
         <div className="flex items-center gap-2.5 mb-1">
           <h1 className="text-2xl font-bold tracking-tight">Библиотека</h1>

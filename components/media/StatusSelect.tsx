@@ -31,7 +31,7 @@ export function StatusSelect({ mediaItemId, currentStatus, mediaType }: StatusSe
   const [status, setStatus] = useState<MediaStatus>(currentStatus)
   const [, startTransition] = useTransition()
 
-  // Статус может смениться извне (тост в SeasonAccordion + router.refresh)
+  // Статус может смениться извне (тост в SeasonAccordion → updateStatus перерисовывает страницу)
   useEffect(() => {
     setStatus(currentStatus)
   }, [currentStatus])
