@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { User, LogOut } from 'lucide-react'
-import { createBrowserClient } from '@/lib/supabase/client'
+import { signOut } from '@/app/actions/auth'
 import TrueFocus from '@/components/ui/TrueFocus'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -18,7 +18,6 @@ function UserMenu({ username, accent }: { username: string; accent: string }) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const supabase = createBrowserClient()
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -32,7 +31,7 @@ function UserMenu({ username, accent }: { username: string; accent: string }) {
 
   async function handleSignOut() {
     setOpen(false)
-    const { error } = await supabase.auth.signOut()
+    const { error } = await signOut().catch(() => ({ error: true as const }))
     if (error) {
       toast.error('Не удалось выйти')
       return
