@@ -52,6 +52,8 @@ export function ModeSwitcher() {
               alt="Naruto"
               fill
               className="object-contain"
+              // Локальная иконка 128px: загрузчик TMDB её не трогает, отдаём как есть
+              unoptimized
               style={{
                 opacity: isSasuke ? 0 : 1,
                 transform: isSasuke ? 'scale(0.7) rotate(-15deg)' : 'scale(1) rotate(0deg)',
@@ -63,6 +65,8 @@ export function ModeSwitcher() {
               alt="Sasuke"
               fill
               className="object-contain"
+              // Локальная иконка 128px: загрузчик TMDB её не трогает, отдаём как есть
+              unoptimized
               style={{
                 opacity: isSasuke ? 1 : 0,
                 transform: isSasuke ? 'scale(1) rotate(0deg)' : 'scale(0.7) rotate(15deg)',

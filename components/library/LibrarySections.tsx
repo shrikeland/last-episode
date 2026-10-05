@@ -25,10 +25,19 @@ export function LibrarySections({ items, hasFilters, progressMap }: LibrarySecti
     { movie: [], animation: [], tv: [], anime: [] }
   )
 
+  // Сразу грузим постеры только первой непустой секции — она над сгибом
+  const firstType = TYPE_ORDER.find((type) => grouped[type].length > 0)
+
   return (
     <div className="space-y-10">
       {TYPE_ORDER.map((type) => (
-        <MediaSection key={type} type={type} items={grouped[type]} progressMap={progressMap} />
+        <MediaSection
+          key={type}
+          type={type}
+          items={grouped[type]}
+          progressMap={progressMap}
+          preloadCount={type === firstType ? 6 : 0}
+        />
       ))}
     </div>
   )
