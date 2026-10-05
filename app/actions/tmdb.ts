@@ -70,12 +70,23 @@ export async function getLibraryTitleKeys(
   return Object.keys(await getLibraryItemIds(titles))
 }
 
-export async function searchTmdb(query: string): Promise<TmdbSearchResult[]> {
+/**
+ * Поиск для страницы /search: выдача TMDB и ключи тайтлов, которые уже в библиотеке, одним вызовом.
+ * Server actions выполняются по очереди — два вызова подряд на каждый запрос удваивали ожидание.
+ */
+export async function searchTitles(
+  query: string
+): Promise<{ results: TmdbSearchResult[]; libraryKeys: string[] }> {
+  let results: TmdbSearchResult[]
   try {
-    return await TmdbService.search(query)
+    results = await TmdbService.search(query)
   } catch {
-    return []
+    return { results: [], libraryKeys: [] }
   }
+  const libraryKeys = await getLibraryTitleKeys(
+    results.map((r) => ({ tmdbId: r.tmdb_id, type: r.type }))
+  )
+  return { results, libraryKeys }
 }
 
 export async function addMediaItem(
