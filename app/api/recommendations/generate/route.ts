@@ -351,8 +351,11 @@ function buildLibraryContext(
 export async function POST(request: Request): Promise<Response> {
   try {
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return new Response('Unauthorized', { status: 401 })
+    // Подпись JWT проверяется локально по JWKS — без запроса к Supabase Auth
+    const { data: claimsData } = await supabase.auth.getClaims()
+    const userId = claimsData?.claims.sub
+    if (!userId) return new Response('Unauthorized', { status: 401 })
+    const user = { id: userId }
 
     const body = await request.json() as { questionnaire: QuestionnaireAnswers }
     const { questionnaire } = body
