@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 
 interface TrueFocusProps {
   sentence?: string
@@ -103,23 +102,26 @@ const TrueFocus: React.FC<TrueFocusProps> = ({
         )
       })}
 
-      <motion.div
+      {/* CSS-переход вместо framer-motion: логотип есть на каждой странице, а двигает он одну рамку */}
+      <div
         className="absolute top-0 left-0 pointer-events-none"
-        animate={{
-          x: focusRect.x,
-          y: focusRect.y,
+        style={{
+          '--border-color': borderColor,
+          '--glow-color': glowColor,
+          transform: `translate(${focusRect.x}px, ${focusRect.y}px)`,
           width: focusRect.width,
           height: focusRect.height,
           opacity: currentIndex >= 0 ? 1 : 0,
-        }}
-        transition={{ duration: animationDuration }}
-        style={{ '--border-color': borderColor, '--glow-color': glowColor } as React.CSSProperties}
+          transition: ['transform', 'width', 'height', 'opacity']
+            .map((prop) => `${prop} ${animationDuration}s ease`)
+            .join(', '),
+        } as React.CSSProperties}
       >
         <span className="absolute w-3 h-3 border-2 top-[-6px] left-[-6px] border-r-0 border-b-0" style={{ borderColor: 'var(--border-color)', filter: 'drop-shadow(0 0 3px var(--border-color))' }} />
         <span className="absolute w-3 h-3 border-2 top-[-6px] right-[-6px] border-l-0 border-b-0" style={{ borderColor: 'var(--border-color)', filter: 'drop-shadow(0 0 3px var(--border-color))' }} />
         <span className="absolute w-3 h-3 border-2 bottom-[-6px] left-[-6px] border-r-0 border-t-0" style={{ borderColor: 'var(--border-color)', filter: 'drop-shadow(0 0 3px var(--border-color))' }} />
         <span className="absolute w-3 h-3 border-2 bottom-[-6px] right-[-6px] border-l-0 border-t-0" style={{ borderColor: 'var(--border-color)', filter: 'drop-shadow(0 0 3px var(--border-color))' }} />
-      </motion.div>
+      </div>
     </div>
   )
 }

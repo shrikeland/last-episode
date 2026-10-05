@@ -1,7 +1,11 @@
 'use client'
 
+// LazyMotion + m вместо motion: док есть на каждой странице, а полный motion тянет все фичи
+// (layout, drag) в общий бандл. Доку хватает domAnimation: анимации, hover/focus, exit.
 import {
-  motion,
+  LazyMotion,
+  domAnimation,
+  m,
   MotionValue,
   useMotionValue,
   useSpring,
@@ -66,7 +70,7 @@ function DockItem({
   const size = useSpring(targetSize, spring)
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       style={{
         width: size,
@@ -90,7 +94,7 @@ function DockItem({
           ? cloneElement(child as React.ReactElement<{ isHovered?: MotionValue<number> }>, { isHovered })
           : child
       )}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -112,7 +116,7 @@ function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 0 }}
           animate={{ opacity: 1, y: -10 }}
           exit={{ opacity: 0, y: 0 }}
@@ -122,7 +126,7 @@ function DockLabel({ children, className = '', isHovered }: DockLabelProps) {
           style={{ x: '-50%' }}
         >
           {children}
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   )
@@ -154,42 +158,44 @@ export default function Dock({
   const mouseX = useMotionValue(Infinity)
 
   return (
-    <div style={{ overflow: 'visible' }} className="flex max-w-full items-center justify-center">
-      <motion.div
-        onMouseMove={({ clientX }) => {
-          mouseX.set(clientX)
-        }}
-        onMouseLeave={() => {
-          mouseX.set(Infinity)
-        }}
-        className={`${className} flex items-end w-fit gap-2 rounded-[24px] border pb-2 px-3`}
-        style={{
-          height: panelHeight,
-          background: 'rgba(13,26,40,0.88)',
-          backdropFilter: 'blur(24px)',
-          borderColor: 'hsl(213 44% 20%)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-        }}
-        role="toolbar"
-        aria-label="Навигация"
-      >
-        {items.map((item, index) => (
-          <DockItem
-            key={index}
-            onClick={item.onClick}
-            className={item.className}
-            mouseX={mouseX}
-            spring={spring}
-            distance={distance}
-            magnification={magnification}
-            baseItemSize={baseItemSize}
-            isActive={item.isActive}
-          >
-            <DockIcon>{item.icon}</DockIcon>
-            <DockLabel>{item.label}</DockLabel>
-          </DockItem>
-        ))}
-      </motion.div>
-    </div>
+    <LazyMotion features={domAnimation}>
+      <div style={{ overflow: 'visible' }} className="flex max-w-full items-center justify-center">
+        <m.div
+          onMouseMove={({ clientX }) => {
+            mouseX.set(clientX)
+          }}
+          onMouseLeave={() => {
+            mouseX.set(Infinity)
+          }}
+          className={`${className} flex items-end w-fit gap-2 rounded-[24px] border pb-2 px-3`}
+          style={{
+            height: panelHeight,
+            background: 'rgba(13,26,40,0.88)',
+            backdropFilter: 'blur(24px)',
+            borderColor: 'hsl(213 44% 20%)',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+          }}
+          role="toolbar"
+          aria-label="Навигация"
+        >
+          {items.map((item, index) => (
+            <DockItem
+              key={index}
+              onClick={item.onClick}
+              className={item.className}
+              mouseX={mouseX}
+              spring={spring}
+              distance={distance}
+              magnification={magnification}
+              baseItemSize={baseItemSize}
+              isActive={item.isActive}
+            >
+              <DockIcon>{item.icon}</DockIcon>
+              <DockLabel>{item.label}</DockLabel>
+            </DockItem>
+          ))}
+        </m.div>
+      </div>
+    </LazyMotion>
   )
 }
