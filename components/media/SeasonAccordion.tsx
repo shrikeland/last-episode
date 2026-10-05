@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { CheckCircle2, ChevronDown } from 'lucide-react'
 import {
@@ -23,6 +22,7 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { EpisodeRow } from './EpisodeRow'
 import { toggleEpisode, markSeason, markAllTitle, markUpToEpisode, updateStatus } from '@/app/actions/progress'
+import { markLibraryStale } from '@/lib/library-stale'
 import { withRetry } from '@/lib/utils'
 import type { SeasonWithEpisodes, Episode, MediaStatus, MediaType } from '@/types'
 
@@ -62,7 +62,6 @@ function isTitleFullyWatched(seasons: SeasonWithEpisodes[], map: EpisodeMap): bo
 export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: SeasonAccordionProps) {
   const [episodeMap, setEpisodeMap] = useState<EpisodeMap>(() => buildEpisodeMap(seasons))
   const [, startTransition] = useTransition()
-  const router = useRouter()
   // Предлагаем «Просмотрено» не чаще раза за визит на страницу
   const offeredRef = useRef(false)
   const [pendingMarkUpTo, setPendingMarkUpTo] = useState<PendingMarkUpTo | null>(null)
@@ -92,8 +91,8 @@ export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: Sea
                 toast.error('Нельзя отметить просмотренным: есть запланированные сезоны')
                 return
               }
+              // Страницу перерисует revalidatePath в updateStatus — отдельный router.refresh() не нужен
               toast.success('Статус: Просмотрено')
-              router.refresh()
             } catch {
               toast.error('Ошибка сохранения статуса')
             }
@@ -114,6 +113,7 @@ export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: Sea
     startTransition(async () => {
       try {
         await withRetry(() => toggleEpisode(episodeId, isWatched))
+        markLibraryStale()
         offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap((prev) => ({ ...prev, [episodeId]: previous }))
@@ -139,6 +139,7 @@ export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: Sea
     startTransition(async () => {
       try {
         await withRetry(() => markSeason(season.id, targetWatched))
+        markLibraryStale()
         offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap(previousMap)
@@ -171,6 +172,7 @@ export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: Sea
     startTransition(async () => {
       try {
         await withRetry(() => markUpToEpisode(episode.id, includePrevious))
+        markLibraryStale()
         offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap(previousMap)
@@ -211,6 +213,7 @@ export function SeasonAccordion({ seasons, mediaItemId, mediaType, status }: Sea
     startTransition(async () => {
       try {
         await withRetry(() => markAllTitle(mediaItemId, targetWatched))
+        markLibraryStale()
         offerComplete(previousMap, nextMap)
       } catch {
         setEpisodeMap(previousMap)

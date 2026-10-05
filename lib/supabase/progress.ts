@@ -137,28 +137,44 @@ export async function createSeasonsAndEpisodes(
   mediaItemId: string,
   seasons: TmdbSeason[]
 ): Promise<void> {
+  if (seasons.length === 0) return
+
   // watched_at stays null — see syncSeasonsAndEpisodes
   const markEpisodesWatched = await isCompletedMediaItem(client, mediaItemId)
 
-  for (const season of seasons) {
-    const { data: seasonData, error: seasonError } = await client
-      .from('seasons')
-      .insert({
+  // Два запроса на весь тайтл вместо двух на каждый сезон: у «Ван-Писа» это было ~45 запросов подряд
+  const { data: inserted, error: seasonError } = await client
+    .from('seasons')
+    .insert(
+      seasons.map((season) => ({
         media_item_id: mediaItemId,
         tmdb_season_id: season.tmdb_season_id,
         season_number: season.season_number,
         name: season.name,
         episode_count: season.episode_count,
-      })
-      .select('id')
-      .single()
+      }))
+    )
+    .select('id, season_number')
 
-    if (seasonError || !seasonData) continue
+  // Не бросаем: тайтл уже создан, а недостающие сезоны/серии досоздаст syncSeasonsAndEpisodes
+  // при первом открытии карточки
+  if (seasonError) {
+    console.error('Failed to create seasons', seasonError)
+    return
+  }
 
-    if (season.episodes.length === 0) continue
+  const seasonIds = new Map(
+    ((inserted ?? []) as { id: string; season_number: number }[]).map((row) => [
+      row.season_number,
+      row.id,
+    ])
+  )
 
-    const episodeRows = season.episodes.map((ep) => ({
-      season_id: seasonData.id,
+  const episodeRows = seasons.flatMap((season) => {
+    const seasonId = seasonIds.get(season.season_number)
+    if (!seasonId) return []
+    return season.episodes.map((ep) => ({
+      season_id: seasonId,
       tmdb_episode_id: ep.tmdb_episode_id,
       episode_number: ep.episode_number,
       name: ep.name,
@@ -166,9 +182,11 @@ export async function createSeasonsAndEpisodes(
       is_watched: markEpisodesWatched,
       watched_at: null,
     }))
+  })
 
-    await client.from('episodes').insert(episodeRows)
-  }
+  if (episodeRows.length === 0) return
+  const { error: episodesError } = await client.from('episodes').insert(episodeRows)
+  if (episodesError) console.error('Failed to create episodes', episodesError)
 }
 
 export async function getSeasonsWithEpisodes(
@@ -397,56 +415,52 @@ export async function getNextUnwatchedEpisode(
   }
 }
 
-/** Время последней отмеченной серии тайтла. updated_at тайтла не годится: отметка серии его не трогает. */
-export async function getLastWatchedAt(
-  client: Client,
-  mediaItemId: string
-): Promise<string | null> {
-  const { data, error } = await client
-    .from('episodes')
-    .select('watched_at, seasons!inner(media_item_id)')
-    .eq('seasons.media_item_id', mediaItemId)
-    .eq('is_watched', true)
-    .not('watched_at', 'is', null)
-    .order('watched_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  return (data as unknown as { watched_at: string } | null)?.watched_at ?? null
-}
-
 /**
  * Начатые тайтлы «Смотрю» с непросмотренными сериями, свежие первыми.
- * По два запроса с limit(1) на тайтл, все параллельно — тайтлов «Смотрю» обычно единицы.
+ * Одна RPC get_continue_watching вместо двух запросов на каждый тайтл.
  */
 export async function getContinueWatching(
   client: Client,
   userId: string
 ): Promise<ContinueItem[]> {
-  const { data, error } = await client
-    .from('media_items')
-    .select('id, title, poster_url, type')
-    .eq('user_id', userId)
-    .eq('status', 'watching')
-    .neq('type', 'movie')
-
+  const { data, error } = await client.rpc('get_continue_watching', { p_user_id: userId })
   if (error) throw error
-  const items = (data ?? []) as Pick<MediaItem, 'id' | 'title' | 'poster_url' | 'type'>[]
 
-  const entries = await Promise.all(
-    items.map(async (item) => {
-      const [next, lastWatchedAt] = await Promise.all([
-        getNextUnwatchedEpisode(client, item.id),
-        getLastWatchedAt(client, item.id),
-      ])
-      return next && lastWatchedAt ? { item, next, lastWatchedAt } : null
-    })
+  type Row = Database['public']['Functions']['get_continue_watching']['Returns'][number]
+  return ((data ?? []) as Row[]).map((row) => ({
+    item: {
+      id: row.media_item_id,
+      title: row.title,
+      poster_url: row.poster_url,
+      type: row.type,
+    },
+    next: {
+      id: row.next_episode_id,
+      episode_number: row.episode_number,
+      name: row.episode_name,
+      is_filler: row.is_filler,
+      season_number: row.season_number,
+    },
+    lastWatchedAt: row.last_watched_at,
+  }))
+}
+
+/** Минуты просмотренных серий по тайтлам — для статистики, без выгрузки самих серий. */
+export async function getWatchedMinutes(
+  client: Client,
+  itemIds: string[]
+): Promise<Map<string, number>> {
+  if (itemIds.length === 0) return new Map()
+
+  const { data, error } = await client.rpc('get_watched_minutes', { item_ids: itemIds })
+  if (error) throw error
+
+  return new Map(
+    ((data ?? []) as { media_item_id: string; minutes: number }[]).map((row) => [
+      row.media_item_id,
+      row.minutes,
+    ])
   )
-
-  return entries
-    .filter((e): e is ContinueItem => e !== null)
-    .sort((a, b) => b.lastWatchedAt.localeCompare(a.lastWatchedAt))
 }
 
 // Safety cap: a 30-day window never realistically exceeds this, even with bulk marks

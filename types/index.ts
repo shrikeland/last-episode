@@ -53,6 +53,12 @@ export interface MediaItem {
   updated_at: string
 }
 
+/** Поля MediaItem, которые нужны карточке библиотеки (см. getLibraryCards). */
+export type LibraryCardItem = Pick<
+  MediaItem,
+  'id' | 'title' | 'poster_url' | 'type' | 'status' | 'rating' | 'release_year' | 'genres'
+>
+
 export interface EpisodeProgress {
   watched: number
   total: number
@@ -246,6 +252,25 @@ export type Database = {
       get_episode_progress: {
         Args: { item_ids: string[] }
         Returns: { media_item_id: string; watched: number; total: number }[]
+      }
+      get_watched_minutes: {
+        Args: { item_ids: string[] }
+        Returns: { media_item_id: string; minutes: number }[]
+      }
+      get_continue_watching: {
+        Args: { p_user_id: string }
+        Returns: {
+          media_item_id: string
+          title: string
+          poster_url: string | null
+          type: MediaType
+          next_episode_id: string
+          episode_number: number
+          episode_name: string
+          is_filler: boolean
+          season_number: number
+          last_watched_at: string
+        }[]
       }
     }
   }

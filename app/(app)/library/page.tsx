@@ -1,10 +1,11 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { getMediaItems, getEpisodeProgressMap, getLibraryGenres } from '@/lib/supabase/media'
+import { getLibraryCards, getEpisodeProgressMap, getLibraryGenres, summarizeLibrary } from '@/lib/supabase/media'
 import { getContinueWatching } from '@/lib/supabase/progress'
 import { FilterBar } from '@/components/library/FilterBarNoSSR'
 import { LibrarySections } from '@/components/library/LibrarySections'
 import { ContinueWatching } from '@/components/library/ContinueWatching'
+import { RefreshIfStale } from '@/components/library/RefreshIfStale'
 import { MEDIA_TYPE_LABELS, SORT_FIELDS } from '@/types'
 import type { MediaFilters, SortOptions, MediaStatus, MediaType, SortField } from '@/types'
 
@@ -65,11 +66,13 @@ export default async function LibraryPage({
   )
 
   // Блок «Продолжить» только без фильтров: при поиске он мешает сверять «Найдено N» с выдачей
-  const [items, { genres, total }, continueItems] = await Promise.all([
-    getMediaItems(supabase, user.id, filters, sort),
-    getLibraryGenres(supabase, user.id),
+  // Без фильтров выборка и есть вся библиотека — жанры и счётчик берём из неё, без второго запроса
+  const [items, librarySummary, continueItems] = await Promise.all([
+    getLibraryCards(supabase, user.id, filters, sort),
+    hasFilters ? getLibraryGenres(supabase, user.id) : null,
     hasFilters ? Promise.resolve([]) : getContinueWatching(supabase, user.id),
   ])
+  const { genres, total } = librarySummary ?? summarizeLibrary(items)
 
   const nonMovieIds = new Set(items.filter((i) => i.type !== 'movie').map((i) => i.id))
   for (const c of continueItems) nonMovieIds.add(c.item.id)
@@ -77,6 +80,7 @@ export default async function LibraryPage({
 
   return (
     <div className="space-y-6">
+      <RefreshIfStale />
       <div>
         <div className="flex items-center gap-2.5 mb-1">
           <h1 className="text-2xl font-bold tracking-tight">Библиотека</h1>

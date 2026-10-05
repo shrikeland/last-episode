@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Star } from 'lucide-react'
 import { updateRating } from '@/app/actions/progress'
+import { markLibraryStale } from '@/lib/library-stale'
 
 interface RatingInputProps {
   mediaItemId: string
@@ -58,6 +59,7 @@ export function RatingInput({ mediaItemId, currentRating }: RatingInputProps) {
     setRating(newRating)
     startTransition(async () => {
       await updateRating(mediaItemId, newRating)
+      markLibraryStale()
     })
   }
 

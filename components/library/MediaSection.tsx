@@ -2,7 +2,7 @@
 
 import { MediaRow } from './MediaRow'
 import { MEDIA_TYPE_LABELS } from '@/types'
-import type { MediaItem, MediaType, EpisodeProgress } from '@/types'
+import type { LibraryCardItem, MediaType, EpisodeProgress } from '@/types'
 import { useTheme } from '@/contexts/ThemeContext'
 
 const TYPE_SVG: Record<MediaType, (accent: string) => React.ReactNode> = {
@@ -36,7 +36,7 @@ const TYPE_SVG: Record<MediaType, (accent: string) => React.ReactNode> = {
 
 interface MediaSectionProps {
   type: MediaType
-  items: MediaItem[]
+  items: LibraryCardItem[]
   progressMap: Record<string, EpisodeProgress>
 }
 
