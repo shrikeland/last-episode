@@ -204,7 +204,7 @@ RLS: most tables locked to `user_id = auth.uid()`.
 - All DB changes via migrations (`supabase/migrations/`) — never through Supabase UI
 - RLS must be enabled on **every new table** — no exceptions
 - Auth exclusively via `@supabase/ssr` — never roll custom auth
-- `@supabase/supabase-js` exact pin at **`2.46.2`** (no `^`) — caret range allowed a breaking minor to slip in; v3 incompatible with `@supabase/ssr`
+- `@supabase/supabase-js` exact pin at **`2.117.2`** and `@supabase/ssr` at **`0.12.7`** (no `^`) — caret range allowed a breaking minor to slip in; v3 incompatible with `@supabase/ssr`. `types/database.ts` is generated from the DB schema (newer supabase-js needs `Relationships`/`Views`/... and infers `never` for missing tables) — regenerate it after every migration
 - Client: `lib/supabase/server.ts` in Server Components/Actions, `lib/supabase/client.ts` in Client Components
 - Auth in server-side code: use `getServerUser()` from `lib/supabase/server.ts` — **never** `supabase.auth.getUser()` directly. `getServerUser` is wrapped in `React.cache()` and deduplicates the auth call across layout + pages + server actions in a single render tree. Exception: API Route Handlers (`/api/*`) — use direct client there.
 
@@ -218,7 +218,8 @@ RLS: most tables locked to `user_id = auth.uid()`.
 |---------|---------------|-----|
 | `framer-motion` | `11.14.4` | 11.15–11.18.x have broken ES builds — Turbopack fails with `Module not found` |
 | `motion-dom` | `11.14.3` | Same ES build issue as framer-motion |
-| `@supabase/supabase-js` | `2.46.2` | Breaking minor via caret; v3 incompatible with SSR |
+| `@supabase/supabase-js` | `2.117.2` | Breaking minor via caret; v3 incompatible with SSR |
+| `@supabase/ssr` | `0.12.7` | Bumped together with supabase-js (peer `^2.114`) |
 
 `package.json` currently uses `^11.14.4` for framer-motion and `^11.14.3` for motion-dom — `npm update` or a fresh `npm install` on a new machine could pull a broken version. If you see Turbopack `Module not found` errors for framer-motion internals, pin to exact versions by removing the `^`.
 
