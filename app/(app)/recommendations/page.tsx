@@ -10,18 +10,18 @@ export default async function RecommendationsRoute() {
 
   const supabase = await createServerClient()
 
-  // Count media items
-  const { count } = await supabase
-    .from('media_items')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-
-  // Load taste profile (table added via migration)
-  const { data: profileRow } = await supabase
-    .from('taste_profiles')
-    .select('summary, updated_at')
-    .eq('user_id', user.id)
-    .single()
+  // Независимые запросы — параллельно
+  const [{ count }, { data: profileRow }] = await Promise.all([
+    supabase
+      .from('media_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
+    supabase
+      .from('taste_profiles')
+      .select('summary, updated_at')
+      .eq('user_id', user.id)
+      .single(),
+  ])
 
   const profile: TasteProfile | null = profileRow
     ? { summary: profileRow.summary, updated_at: profileRow.updated_at }
