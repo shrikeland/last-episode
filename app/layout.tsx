@@ -1,7 +1,16 @@
 import type { Metadata } from 'next'
+import { Onest } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import './globals.css'
+
+// Self-hosted через next/font: без render-blocking @import к Google и без сдвига вёрстки.
+// Кириллица обязательна — у прежнего DM Sans её не было, и русский текст шёл системным шрифтом
+const onest = Onest({
+  subsets: ['latin', 'cyrillic'],
+  variable: '--font-sans',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Last Episode',
@@ -14,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ru" className="dark" suppressHydrationWarning>
+    <html lang="ru" className={`dark ${onest.variable}`} suppressHydrationWarning>
       <body className="antialiased">
         <ThemeProvider>
           {children}
