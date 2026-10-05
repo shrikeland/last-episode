@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { TasteProfileCard } from './TasteProfileCard'
 import { RecommendationQuestionnaire } from './RecommendationQuestionnaire'
 import { RecommendationResults } from './RecommendationResults'
-import { getLibraryTitleKeys } from '@/app/actions/tmdb'
+import { mediaTitleKey } from '@/lib/tmdb/kind'
 import type { TasteProfile, QuestionnaireAnswers, RecommendationCardData } from '@/types/recommendations'
 
 const INTRO_DONE_MARKER = '\n__INTRO_DONE__\n'
@@ -98,8 +98,10 @@ export function RecommendationsPage({ initialProfile, itemCount }: Props) {
           const cardsJson = accumulated.slice(cardsIdx + CARDS_MARKER.length).trim()
           try {
             const parsed = JSON.parse(cardsJson) as RecommendationCardData[]
-            const titles = parsed.flatMap((c) => (c.tmdbId != null ? [{ tmdbId: c.tmdbId, type: c.type }] : []))
-            const keys = await getLibraryTitleKeys(titles)
+            // inLibrary проставляет сервер — отдельный запрос после получения карточек не нужен
+            const keys = parsed.flatMap((c) =>
+              c.inLibrary && c.tmdbId != null ? [mediaTitleKey(c.type, c.tmdbId)] : []
+            )
             setLibraryKeys(new Set(keys))
             setCards(parsed)
           } catch {

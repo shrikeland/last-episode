@@ -357,12 +357,17 @@ export async function POST(request: Request): Promise<Response> {
     const body = await request.json() as { questionnaire: QuestionnaireAnswers }
     const { questionnaire } = body
 
-    // Load taste profile
-    const { data: profileRow, error: profileErr } = await supabase
-      .from('taste_profiles')
-      .select('summary')
-      .eq('user_id', user.id)
-      .single()
+    // Профиль вкусов, библиотека и история рекомендаций независимы — грузим параллельно,
+    // а не тремя запросами подряд перед вызовом Groq (пользователь в это время видит пустой экран)
+    const [
+      { data: profileRow, error: profileErr },
+      items,
+      { recent: recentRecommendations, titles: recentTitles },
+    ] = await Promise.all([
+      supabase.from('taste_profiles').select('summary').eq('user_id', user.id).single(),
+      getMediaItems(supabase, user.id),
+      loadRecentRecommendations(supabase, user.id),
+    ])
 
     if (profileErr || !profileRow) {
       return new Response(JSON.stringify({ error: 'no_profile' }), {
@@ -371,24 +376,20 @@ export async function POST(request: Request): Promise<Response> {
       })
     }
 
-    // Load library for context
-    const items = await getMediaItems(supabase, user.id)
     const libraryContext = buildLibraryContext(
       items.map((i) => ({ title: i.title, status: i.status, rating: i.rating })),
       questionnaire.familiarity
     )
-    // Hard server-side exclusion set: for new_only, filter enriched cards by (kind, tmdb_id)
-    const libraryKeys = questionnaire.familiarity === 'new_only'
-      ? new Set(items.map((i) => tmdbTitleKey(i.tmdb_kind, i.tmdb_id)))
-      : null
-    const isInLibrary = (c: RecommendationCardData) => {
+    // Ключи (kind, tmdb_id) всей библиотеки: и для жёсткого исключения в new_only, и для пометки
+    // inLibrary на карточках — клиенту не нужен отдельный запрос «что из этого у меня уже есть»
+    const allLibraryKeys = new Set(items.map((i) => tmdbTitleKey(i.tmdb_kind, i.tmdb_id)))
+    const inLibrary = (c: RecommendationCardData) => {
       const key = cardTitleKey(c)
-      return key !== null && libraryKeys !== null && libraryKeys.has(key)
+      return key !== null && allLibraryKeys.has(key)
     }
-
-    // Load recommendation history for anti-repeat filtering
-    const { recent: recentRecommendations, titles: recentTitles } =
-      await loadRecentRecommendations(supabase, user.id)
+    // Hard server-side exclusion: for new_only, filter enriched cards by (kind, tmdb_id)
+    const isInLibrary = (c: RecommendationCardData) =>
+      questionnaire.familiarity === 'new_only' && inLibrary(c)
 
     const userPrompt = buildUserPrompt(profileRow.summary, questionnaire, libraryContext, recentTitles)
 
@@ -550,7 +551,10 @@ export async function POST(request: Request): Promise<Response> {
             }
 
             // Pick top 5 with decade-based diversity
-            cards = selectDiverseTop5(cards, questionnaire.contentType)
+            cards = selectDiverseTop5(cards, questionnaire.contentType).map((c) => ({
+              ...c,
+              inLibrary: inLibrary(c),
+            }))
             controller.enqueue(encoder.encode(CARDS_MARKER + JSON.stringify(cards) + '\n'))
             // Save to history (fire-and-forget — doesn't block the response)
             void saveRecommendationHistory(supabase, user.id, cards)
