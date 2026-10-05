@@ -3,6 +3,7 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { createMediaItem } from '@/lib/supabase/media'
 import { createSeasonsAndEpisodes } from '@/lib/supabase/progress'
+import { after } from 'next/server'
 import { fetchAndApplyFillers } from '@/lib/filler/filler.service'
 import { getMovieDetails, getTVDetails, getBasicInfo, getCredits, buildPosterUrl } from '@/lib/tmdb/tmdb.service'
 import type { CreateMediaItemOptions, MediaStatus, MediaType, TmdbSeason } from '@/types'
@@ -119,13 +120,11 @@ export async function addRecommendedTitle(
       await createSeasonsAndEpisodes(supabase, result.item.id, details.seasons)
 
       if (type === 'anime') {
-        void fetchAndApplyFillers(
-          result.item.id,
-          details.tmdb_id,
-          details.title,
-          details.original_title,
-          details.seasons
-        )
+        // after(): работает после ответа пользователю, но Vercel не заморозит функцию, пока не
+        // закончит — голый `void` мог оборвать загрузку филлеров (Jikan листается с паузами)
+        const { tmdb_id, title, original_title, seasons } = details
+        const mediaItemId = result.item.id
+        after(() => fetchAndApplyFillers(mediaItemId, tmdb_id, title, original_title, seasons))
       }
     }
 
