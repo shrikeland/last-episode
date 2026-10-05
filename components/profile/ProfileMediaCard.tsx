@@ -76,7 +76,7 @@ export function ProfileMediaCard({ item, username, initialAdded = false }: Profi
               alt={item.title}
               fill
               className="object-cover"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              sizes="152px"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">

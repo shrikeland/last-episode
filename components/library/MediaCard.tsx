@@ -24,6 +24,8 @@ import { useTheme } from '@/contexts/ThemeContext'
 
 interface MediaCardProps {
   item: LibraryCardItem
+  /** Первые карточки над сгибом: постер грузится сразу, а не лениво — это LCP библиотеки. */
+  preload?: boolean
   index?: number
   progress?: EpisodeProgress
 }
@@ -51,7 +53,7 @@ function setTilt(el: HTMLElement, rx: number, ry: number, gx: number, gy: number
   el.style.setProperty('--go', String(go))
 }
 
-export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
+export function MediaCard({ item, index = 0, progress, preload = false }: MediaCardProps) {
   const router = useRouter()
   const { accent } = useTheme()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -109,7 +111,8 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
         borderRadius: 10,
         overflow: 'hidden',
         cursor: 'pointer',
-        animation: `cardIn 480ms ${index * 42}ms both cubic-bezier(0.34,1.56,0.64,1)`,
+        // Каскад только для первой дюжины: иначе 40-я карточка в сетке невидима ~1,7 с
+        animation: `cardIn 480ms ${Math.min(index, 12) * 42}ms both cubic-bezier(0.34,1.56,0.64,1)`,
         transform: `perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)) scale(${hovered ? 1.02 : 1})`,
         transition: hovered
           ? 'box-shadow 0.15s, border-color 0.15s'
@@ -160,6 +163,7 @@ export function MediaCard({ item, index = 0, progress }: MediaCardProps) {
               fill
               className="object-cover"
               sizes="(max-width: 640px) 50vw, 220px"
+              preload={preload}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">

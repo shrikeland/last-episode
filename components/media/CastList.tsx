@@ -92,6 +92,8 @@ export function CastList({ cast }: CastListProps) {
                     fill
                     className="object-cover"
                     sizes="132px"
+                    // Фото профиля TMDB уже w185 — подбирать размер нечего (см. lib/images/tmdb-loader.ts)
+                    unoptimized
                   />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">

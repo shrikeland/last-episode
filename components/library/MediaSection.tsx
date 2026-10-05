@@ -38,9 +38,10 @@ interface MediaSectionProps {
   type: MediaType
   items: LibraryCardItem[]
   progressMap: Record<string, EpisodeProgress>
+  preloadCount?: number
 }
 
-export function MediaSection({ type, items, progressMap }: MediaSectionProps) {
+export function MediaSection({ type, items, progressMap, preloadCount = 0 }: MediaSectionProps) {
   const { accent } = useTheme()
   if (items.length === 0) return null
 
@@ -69,7 +70,7 @@ export function MediaSection({ type, items, progressMap }: MediaSectionProps) {
           style={{ background: 'linear-gradient(90deg, hsl(213 44% 20%) 0%, transparent 100%)' }}
         />
       </div>
-      <MediaRow items={items} progressMap={progressMap} />
+      <MediaRow items={items} progressMap={progressMap} preloadCount={preloadCount} />
     </div>
   )
 }

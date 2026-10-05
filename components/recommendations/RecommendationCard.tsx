@@ -95,7 +95,7 @@ export function RecommendationCard({ title, year, type, reason, tmdbId, posterUr
               alt={title}
               fill
               className="object-cover"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px"
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 200px"
             />
           ) : (
             <div className="flex h-full items-center justify-center">
