@@ -15,11 +15,12 @@ Faster feedback while searching and while waiting for recommendations: fewer rou
   - A client-side search `Map` cache: in-library flags go stale after adding a title from search. The 1 h server cache covers repeat queries.
 
 ## Checklist
-- [ ] TMDB search cache + normalized query
-- [ ] `searchTitles` action, `SearchInput` uses it, 2-char minimum, `?q=`
-- [ ] Recommendations route: parallel loads, `inLibrary` on cards
-- [ ] Recommendations client: no `getLibraryTitleKeys`, card skeletons
-- [ ] build + lint; local check of `/search` reading `?q=`
+- [x] TMDB search cache + normalized query
+- [x] `searchTitles` action, `SearchInput` uses it, 2-char minimum, `?q=`
+- [x] Recommendations route: parallel loads, `inLibrary` on cards
+- [x] Recommendations client: no `getLibraryTitleKeys`, card skeletons
+- [x] build + lint after every commit
+- [ ] `/search` and `/recommendations` need a signed-in session. CI smoke covers TC-SEARCH-001/004 and TC-REC-001. Check `?q=` + Back and a full generation by hand on the preview
 
 ## Risks / open questions
 - A cached search can be up to 1 h stale (a just-released title may not show up yet). Acceptable for a tracker.
