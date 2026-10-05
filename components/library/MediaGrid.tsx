@@ -1,9 +1,9 @@
 import { MediaCard } from './MediaCard'
 import { EmptyState } from './EmptyState'
-import type { MediaItem, EpisodeProgress } from '@/types'
+import type { LibraryCardItem, EpisodeProgress } from '@/types'
 
 interface MediaGridProps {
-  items: MediaItem[]
+  items: LibraryCardItem[]
   hasFilters: boolean
   progressMap: Record<string, EpisodeProgress>
 }

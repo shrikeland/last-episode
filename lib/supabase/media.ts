@@ -3,6 +3,7 @@ import type {
   CreateMediaItemOptions,
   Database,
   EpisodeProgress,
+  LibraryCardItem,
   MediaItem,
   MediaFilters,
   SortOptions,
@@ -13,15 +14,16 @@ import { collectCanonicalGenres, genreVariants } from '@/lib/genres'
 
 type Client = SupabaseClient<Database>
 
-export async function getMediaItems(
+function filteredMediaQuery(
   client: Client,
+  columns: string,
   userId: string,
   filters?: MediaFilters,
   sort?: SortOptions
-): Promise<MediaItem[]> {
+) {
   let query = client
     .from('media_items')
-    .select('*')
+    .select(columns)
     .eq('user_id', userId)
 
   if (filters?.status && filters.status !== 'all') {
@@ -51,11 +53,33 @@ export async function getMediaItems(
 
   const field = sort?.field ?? 'release_year'
   const ascending = sort?.direction === 'asc'
-  query = query.order(field, { ascending })
+  return query.order(field, { ascending })
+}
 
-  const { data, error } = await query
+export async function getMediaItems(
+  client: Client,
+  userId: string,
+  filters?: MediaFilters,
+  sort?: SortOptions
+): Promise<MediaItem[]> {
+  const { data, error } = await filteredMediaQuery(client, '*', userId, filters, sort)
   if (error) throw error
-  return (data ?? []) as MediaItem[]
+  return (data ?? []) as unknown as MediaItem[]
+}
+
+// Только то, что рисует карточка (+ genres для фильтра жанров): вся строка с overview и notes
+// уходила в HTML и RSC-payload на каждую карточку
+const LIBRARY_CARD_COLUMNS = 'id, title, poster_url, type, status, rating, release_year, genres'
+
+export async function getLibraryCards(
+  client: Client,
+  userId: string,
+  filters?: MediaFilters,
+  sort?: SortOptions
+): Promise<LibraryCardItem[]> {
+  const { data, error } = await filteredMediaQuery(client, LIBRARY_CARD_COLUMNS, userId, filters, sort)
+  if (error) throw error
+  return (data ?? []) as unknown as LibraryCardItem[]
 }
 
 /** Канонические жанры всей библиотеки (без учёта фильтров) и общее число тайтлов — для FilterBar и шапки. */
@@ -69,7 +93,13 @@ export async function getLibraryGenres(
     .eq('user_id', userId)
 
   if (error) throw error
-  const rows = (data ?? []) as Pick<MediaItem, 'genres'>[]
+  return summarizeLibrary((data ?? []) as Pick<MediaItem, 'genres'>[])
+}
+
+/** То же, что getLibraryGenres, по уже загруженным строкам — когда выборка и так вся библиотека. */
+export function summarizeLibrary(
+  rows: Pick<MediaItem, 'genres'>[]
+): { genres: string[]; total: number } {
   const genres = collectCanonicalGenres(rows.flatMap((r) => r.genres ?? []))
   return { genres, total: rows.length }
 }

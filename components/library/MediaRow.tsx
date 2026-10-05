@@ -1,9 +1,9 @@
 import { MediaCard } from './MediaCard'
 import { ScrollRow } from './ScrollRow'
-import type { MediaItem, EpisodeProgress } from '@/types'
+import type { LibraryCardItem, EpisodeProgress } from '@/types'
 
 interface MediaRowProps {
-  items: MediaItem[]
+  items: LibraryCardItem[]
   progressMap: Record<string, EpisodeProgress>
 }
 

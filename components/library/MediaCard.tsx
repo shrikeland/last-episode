@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { deleteMediaItem } from '@/app/actions/media'
 import { MEDIA_STATUS_LABELS, MEDIA_TYPE_LABELS } from '@/types'
-import type { MediaItem, EpisodeProgress } from '@/types'
+import type { LibraryCardItem, EpisodeProgress } from '@/types'
 import { useTheme } from '@/contexts/ThemeContext'
 
 interface MediaCardProps {
-  item: MediaItem
+  item: LibraryCardItem
   index?: number
   progress?: EpisodeProgress
 }

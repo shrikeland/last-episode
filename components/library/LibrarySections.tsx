@@ -1,12 +1,12 @@
 import { MediaSection } from './MediaSection'
 import { MediaGrid } from './MediaGrid'
 import { EmptyState } from './EmptyState'
-import type { MediaItem, MediaType, EpisodeProgress } from '@/types'
+import type { LibraryCardItem, MediaType, EpisodeProgress } from '@/types'
 
 const TYPE_ORDER: MediaType[] = ['movie', 'animation', 'tv', 'anime']
 
 interface LibrarySectionsProps {
-  items: MediaItem[]
+  items: LibraryCardItem[]
   hasFilters: boolean
   progressMap: Record<string, EpisodeProgress>
 }
@@ -20,7 +20,7 @@ export function LibrarySections({ items, hasFilters, progressMap }: LibrarySecti
     return <EmptyState hasFilters={false} />
   }
 
-  const grouped = items.reduce<Record<MediaType, MediaItem[]>>(
+  const grouped = items.reduce<Record<MediaType, LibraryCardItem[]>>(
     (acc, item) => { acc[item.type].push(item); return acc },
     { movie: [], animation: [], tv: [], anime: [] }
   )

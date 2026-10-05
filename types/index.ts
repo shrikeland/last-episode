@@ -53,6 +53,12 @@ export interface MediaItem {
   updated_at: string
 }
 
+/** Поля MediaItem, которые нужны карточке библиотеки (см. getLibraryCards). */
+export type LibraryCardItem = Pick<
+  MediaItem,
+  'id' | 'title' | 'poster_url' | 'type' | 'status' | 'rating' | 'release_year' | 'genres'
+>
+
 export interface EpisodeProgress {
   watched: number
   total: number
