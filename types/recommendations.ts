@@ -15,6 +15,8 @@ export interface RecommendationCardData {
   reason: string
   tmdbId: number | null
   posterUrl: string | null
+  /** Тайтл уже в библиотеке пользователя — проставляет /api/recommendations/generate. */
+  inLibrary?: boolean
 }
 
 export interface TasteProfile {

@@ -1,16 +1,32 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Loader2, X } from 'lucide-react'
-import { searchTmdb, getLibraryTitleKeys } from '@/app/actions/tmdb'
+import { searchTitles } from '@/app/actions/tmdb'
 import { mediaTitleKey } from '@/lib/tmdb/kind'
 import { TmdbResultCard } from './TmdbResultCard'
 import type { TmdbSearchResult } from '@/types'
 
-export function SearchInput() {
-  const [query, setQuery] = useState('')
+// Одна буква даёт TMDB шум, а не выдачу
+const MIN_QUERY_LENGTH = 2
+const DEBOUNCE_MS = 400
+
+/**
+ * Запрос живёт в ?q=, чтобы «Назад» с карточки тайтла возвращал выдачу.
+ * history.replaceState Next 16 синхронизирует с роутером без запроса к серверу.
+ */
+function syncQueryToUrl(value: string) {
+  const url = new URL(window.location.href)
+  const trimmed = value.trim()
+  if (trimmed) url.searchParams.set('q', trimmed)
+  else url.searchParams.delete('q')
+  window.history.replaceState(null, '', url)
+}
+
+export function SearchInput({ initialQuery = '' }: { initialQuery?: string }) {
+  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<TmdbSearchResult[]>([])
   const [libraryKeys, setLibraryKeys] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
@@ -18,11 +34,37 @@ export function SearchInput() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestIdRef = useRef(0)
 
+  async function runSearch(value: string, requestId: number) {
+    setIsLoading(true)
+    try {
+      const { results: data, libraryKeys: keys } = await searchTitles(value)
+      if (requestId !== requestIdRef.current) return
+      setLibraryKeys(new Set(keys))
+      setResults(data)
+      setSearched(true)
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false)
+      }
+    }
+  }
+
+  // Вернулись на /search?q=… — сразу показываем выдачу, без ожидания debounce
+  useEffect(() => {
+    if (initialQuery.trim().length < MIN_QUERY_LENGTH) return
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    void runSearch(initialQuery, requestId)
+    // Только при монтировании: дальше запрос ведёт handleChange
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleChange = (value: string) => {
     setQuery(value)
+    syncQueryToUrl(value)
     if (timerRef.current) clearTimeout(timerRef.current)
 
-    if (!value.trim()) {
+    if (value.trim().length < MIN_QUERY_LENGTH) {
       setResults([])
       setLibraryKeys(new Set())
       setSearched(false)
@@ -33,21 +75,7 @@ export function SearchInput() {
 
     const requestId = requestIdRef.current + 1
     requestIdRef.current = requestId
-    timerRef.current = setTimeout(async () => {
-      setIsLoading(true)
-      try {
-        const data = await searchTmdb(value)
-        const keys = await getLibraryTitleKeys(data.map((r) => ({ tmdbId: r.tmdb_id, type: r.type })))
-        if (requestId !== requestIdRef.current) return
-        setLibraryKeys(new Set(keys))
-        setResults(data)
-        setSearched(true)
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setIsLoading(false)
-        }
-      }
-    }, 400)
+    timerRef.current = setTimeout(() => void runSearch(value, requestId), DEBOUNCE_MS)
   }
 
   const handleClear = () => {
@@ -57,6 +85,7 @@ export function SearchInput() {
     }
     requestIdRef.current += 1
     setQuery('')
+    syncQueryToUrl('')
     setResults([])
     setLibraryKeys(new Set())
     setSearched(false)

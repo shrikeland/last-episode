@@ -56,13 +56,31 @@ export function RecommendationResults({
 
       {/* Loading indicator: intro done, waiting for cards */}
       {isLoadingCards && !showCards && (
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span className="flex gap-1">
-            <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-            <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-            <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
-          </span>
-          <span className="animate-pulse">Формирую список рекомендаций...</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex gap-1">
+              <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+              <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+              <span className="h-2 w-2 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+            </span>
+            <span className="animate-pulse">Формирую список рекомендаций...</span>
+          </div>
+          {/* Скелетоны в той же сетке: видно, что и где появится, и карточки не сдвигают страницу */}
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+            aria-hidden
+            data-testid="recommendation-skeletons"
+          >
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="aspect-[2/3] bg-muted/20 animate-pulse" />
+                <div className="space-y-2 p-3">
+                  <div className="h-4 w-3/4 rounded bg-muted/20 animate-pulse" />
+                  <div className="h-3 w-1/2 rounded bg-muted/20 animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

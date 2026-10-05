@@ -9,6 +9,9 @@ const DAY = 60 * 60 * 24
 // Сезоны и эпизоды: страница тайтла сверяет их с БД при каждом открытии — кэш снимает
 // десятки запросов к TMDB на заход, а новая серия появляется с задержкой максимум 6 ч
 const SEASONS_TTL = 60 * 60 * 6
+// Поиск: повторные запросы (тот же ввод, обогащение рекомендаций одними и теми же тайтлами)
+// отдаются из data cache; свежий релиз может появиться в выдаче с задержкой до часа
+const SEARCH_TTL = 60 * 60
 
 function getApiKey(): string {
   const key = process.env.TMDB_API_KEY
@@ -65,10 +68,12 @@ function extractYear(dateStr: string | null | undefined): number | null {
 }
 
 export async function search(query: string): Promise<TmdbSearchResult[]> {
-  if (!query.trim()) return []
+  // URL — ключ кэша: «Наруто », «наруто» и «НАРУТО» должны попадать в одну запись. Поиск TMDB регистр не различает
+  const normalized = query.trim().replace(/\s+/g, ' ').toLowerCase()
+  if (!normalized) return []
 
-  const url = buildUrl('/search/multi', { query, include_adult: 'false' })
-  const res = await tmdbFetch(url, 0)
+  const url = buildUrl('/search/multi', { query: normalized, include_adult: 'false' })
+  const res = await tmdbFetch(url, SEARCH_TTL)
 
   if (!res.ok) throw new Error(`TMDB search failed: ${res.status}`)
 

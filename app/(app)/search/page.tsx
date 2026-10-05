@@ -2,7 +2,13 @@ import { SearchInput } from '@/components/search/SearchInput'
 
 export const dynamic = 'force-dynamic'
 
-export default function SearchPage() {
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
+
   return (
     <div className="space-y-6">
       <div>
@@ -11,7 +17,7 @@ export default function SearchPage() {
           Найдите фильм, сериал или аниме и добавьте в коллекцию
         </p>
       </div>
-      <SearchInput />
+      <SearchInput initialQuery={typeof q === 'string' ? q : ''} />
     </div>
   )
 }
