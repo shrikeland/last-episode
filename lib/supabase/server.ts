@@ -30,15 +30,23 @@ export async function createServerClient() {
   )
 }
 
+/** То, что приложению нужно от пользователя сессии: id везде, email — fallback имени в навбаре. */
+export type AuthUser = {
+  id: string
+  email: string | null
+}
+
 /**
  * Возвращает текущего авторизованного пользователя.
- * React.cache() гарантирует один auth вызов на весь render-дерево запроса
+ * getClaims() проверяет подпись JWT локально по JWKS проекта (ES256, кэш на инстанс 10 мин) —
+ * без запроса к Supabase Auth; при HS256 сам откатывается на getUser().
+ * React.cache() гарантирует одну проверку на всё render-дерево запроса
  * (layout + page + все server actions в пределах одного рендера).
  */
-export const getServerUser = cache(async () => {
+export const getServerUser = cache(async (): Promise<AuthUser | null> => {
   const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+  const { data } = await supabase.auth.getClaims()
+  const claims = data?.claims
+  if (!claims?.sub) return null
+  return { id: claims.sub, email: claims.email ?? null }
 })

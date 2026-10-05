@@ -29,8 +29,11 @@ function buildUserPrompt(items: { title: string; type: string; status: string; r
 export async function POST(): Promise<NextResponse> {
   try {
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Подпись JWT проверяется локально по JWKS — без запроса к Supabase Auth
+    const { data: claimsData } = await supabase.auth.getClaims()
+    const userId = claimsData?.claims.sub
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
 
     const items = await getMediaItems(supabase, user.id)
 

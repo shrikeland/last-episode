@@ -4,6 +4,7 @@ import type {
   Database,
   Episode,
   MediaItem,
+  MediaType,
   NextEpisode,
   Season,
   SeasonWithEpisodes,
@@ -432,7 +433,8 @@ export async function getContinueWatching(
       id: row.media_item_id,
       title: row.title,
       poster_url: row.poster_url,
-      type: row.type,
+      // В БД type — text с CHECK, генератор типов видит string
+      type: row.type as MediaType,
     },
     next: {
       id: row.next_episode_id,
