@@ -24,15 +24,29 @@ Pages paint sooner and feel faster: less JS on every page, no render-blocking fo
 - **Dropped: `useOptimistic`.** After stage 1, episode marks and ratings no longer return a re-rendered page, so a server reply can't overwrite in-flight ticks any more.
 
 ## Checklist
-- [ ] Font → Onest via next/font
-- [ ] TMDB image loader + priority + sizes
-- [ ] Sign-out server action
-- [ ] TrueFocus CSS, Dock LazyMotion
-- [ ] Card stagger cap
-- [ ] FilterBar skeleton
-- [ ] Theme flash fix
-- [ ] loading.tsx for search / recommendations / friend's title
-- [ ] build + lint after every commit; check visually in the browser (library, title, login)
+- [x] Font → Onest via next/font
+- [x] TMDB image loader + `preload` (Next 16's name for `priority`) + sizes
+- [x] Sign-out server action
+- [x] TrueFocus CSS, Dock LazyMotion
+- [x] Card stagger cap
+- [x] FilterBar skeleton
+- [x] Theme flash fix
+- [x] loading.tsx for search / recommendations / friend's title
+- [x] build + lint after every commit
+- [x] Login page in a local `next start`: Onest loaded, 0 Google Fonts requests, Sasuke palette applied by the head script, no console errors
+- [ ] Library and title pages need a signed-in session: check them on the Vercel preview
+
+## Measured
+Sum of gzip JS referenced by each route's client-reference manifest, `main` (2fb05cf) → this branch:
+
+| Route | main | branch |
+|---|---|---|
+| /library | 272.5 KB | 183.7 KB |
+| /media/[id] | 327.6 KB | 238.8 KB |
+| /stats | 231.7 KB | 143.1 KB |
+| /community | 254.7 KB | 165.8 KB |
+
+The Supabase Auth client (`/auth/v1`) is gone from every app route.
 
 ## Risks / open questions
 - With `loader: 'custom'`, every `next/image` goes through the loader. Anything that isn't a TMDB poster is served as-is: the two 24 KB mode icons now load at full size.
