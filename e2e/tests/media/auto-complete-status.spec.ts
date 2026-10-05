@@ -32,7 +32,9 @@ async function findTitleUrl(page: Page): Promise<string | null> {
   await library.filterByText(TITLE)
   await page.waitForURL(/search=/, { timeout: 5000 })
   const card = library.cards().filter({ hasText: TITLE }).first()
-  if (!(await card.isVisible({ timeout: 10000 }).catch(() => false))) return null
+  // isVisible() doesn't wait (its timeout is ignored) — a slow render made the title look missing
+  const found = await card.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false)
+  if (!found) return null
   await card.locator('a').first().click()
   await page.waitForURL(/\/media\//, { timeout: 15000 })
   mediaUrl = new URL(page.url()).pathname
