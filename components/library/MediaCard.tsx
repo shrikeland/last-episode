@@ -111,7 +111,8 @@ export function MediaCard({ item, index = 0, progress, preload = false }: MediaC
         borderRadius: 10,
         overflow: 'hidden',
         cursor: 'pointer',
-        animation: `cardIn 480ms ${index * 42}ms both cubic-bezier(0.34,1.56,0.64,1)`,
+        // Каскад только для первой дюжины: иначе 40-я карточка в сетке невидима ~1,7 с
+        animation: `cardIn 480ms ${Math.min(index, 12) * 42}ms both cubic-bezier(0.34,1.56,0.64,1)`,
         transform: `perspective(900px) rotateX(calc(var(--rx, 0) * 1deg)) rotateY(calc(var(--ry, 0) * 1deg)) scale(${hovered ? 1.02 : 1})`,
         transition: hovered
           ? 'box-shadow 0.15s, border-color 0.15s'
