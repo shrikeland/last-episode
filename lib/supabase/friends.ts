@@ -130,7 +130,7 @@ export async function getFriendsWithTitle(
   }
 }
 
-/** Последняя отмеченная серия тайтла по watched_at — как getLastWatchedAt в progress.ts. */
+/** Последняя отмеченная серия тайтла по watched_at. */
 async function getLastWatchedEpisode(
   service: Client,
   mediaItemId: string

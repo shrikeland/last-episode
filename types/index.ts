@@ -253,6 +253,25 @@ export type Database = {
         Args: { item_ids: string[] }
         Returns: { media_item_id: string; watched: number; total: number }[]
       }
+      get_watched_minutes: {
+        Args: { item_ids: string[] }
+        Returns: { media_item_id: string; minutes: number }[]
+      }
+      get_continue_watching: {
+        Args: { p_user_id: string }
+        Returns: {
+          media_item_id: string
+          title: string
+          poster_url: string | null
+          type: MediaType
+          next_episode_id: string
+          episode_number: number
+          episode_name: string
+          is_filler: boolean
+          season_number: number
+          last_watched_at: string
+        }[]
+      }
     }
   }
 }

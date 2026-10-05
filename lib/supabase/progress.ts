@@ -415,56 +415,52 @@ export async function getNextUnwatchedEpisode(
   }
 }
 
-/** Время последней отмеченной серии тайтла. updated_at тайтла не годится: отметка серии его не трогает. */
-export async function getLastWatchedAt(
-  client: Client,
-  mediaItemId: string
-): Promise<string | null> {
-  const { data, error } = await client
-    .from('episodes')
-    .select('watched_at, seasons!inner(media_item_id)')
-    .eq('seasons.media_item_id', mediaItemId)
-    .eq('is_watched', true)
-    .not('watched_at', 'is', null)
-    .order('watched_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  return (data as unknown as { watched_at: string } | null)?.watched_at ?? null
-}
-
 /**
  * Начатые тайтлы «Смотрю» с непросмотренными сериями, свежие первыми.
- * По два запроса с limit(1) на тайтл, все параллельно — тайтлов «Смотрю» обычно единицы.
+ * Одна RPC get_continue_watching вместо двух запросов на каждый тайтл.
  */
 export async function getContinueWatching(
   client: Client,
   userId: string
 ): Promise<ContinueItem[]> {
-  const { data, error } = await client
-    .from('media_items')
-    .select('id, title, poster_url, type')
-    .eq('user_id', userId)
-    .eq('status', 'watching')
-    .neq('type', 'movie')
-
+  const { data, error } = await client.rpc('get_continue_watching', { p_user_id: userId })
   if (error) throw error
-  const items = (data ?? []) as Pick<MediaItem, 'id' | 'title' | 'poster_url' | 'type'>[]
 
-  const entries = await Promise.all(
-    items.map(async (item) => {
-      const [next, lastWatchedAt] = await Promise.all([
-        getNextUnwatchedEpisode(client, item.id),
-        getLastWatchedAt(client, item.id),
-      ])
-      return next && lastWatchedAt ? { item, next, lastWatchedAt } : null
-    })
+  type Row = Database['public']['Functions']['get_continue_watching']['Returns'][number]
+  return ((data ?? []) as Row[]).map((row) => ({
+    item: {
+      id: row.media_item_id,
+      title: row.title,
+      poster_url: row.poster_url,
+      type: row.type,
+    },
+    next: {
+      id: row.next_episode_id,
+      episode_number: row.episode_number,
+      name: row.episode_name,
+      is_filler: row.is_filler,
+      season_number: row.season_number,
+    },
+    lastWatchedAt: row.last_watched_at,
+  }))
+}
+
+/** Минуты просмотренных серий по тайтлам — для статистики, без выгрузки самих серий. */
+export async function getWatchedMinutes(
+  client: Client,
+  itemIds: string[]
+): Promise<Map<string, number>> {
+  if (itemIds.length === 0) return new Map()
+
+  const { data, error } = await client.rpc('get_watched_minutes', { item_ids: itemIds })
+  if (error) throw error
+
+  return new Map(
+    ((data ?? []) as { media_item_id: string; minutes: number }[]).map((row) => [
+      row.media_item_id,
+      row.minutes,
+    ])
   )
-
-  return entries
-    .filter((e): e is ContinueItem => e !== null)
-    .sort((a, b) => b.lastWatchedAt.localeCompare(a.lastWatchedAt))
 }
 
 // Safety cap: a 30-day window never realistically exceeds this, even with bulk marks

@@ -3,9 +3,10 @@
 import { createServerClient, getServerUser } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getMediaItems } from '@/lib/supabase/media'
+import { getWatchedMinutes } from '@/lib/supabase/progress'
 import { computeStats } from '@/lib/stats'
 import type { EpisodeForStats } from '@/lib/stats'
-import type { Profile, MediaItem, MediaType } from '@/types'
+import type { Profile, MediaItem } from '@/types'
 
 export async function getRecentUsers(limit = 5): Promise<Profile[]> {
   const user = await getServerUser()
@@ -70,41 +71,16 @@ export async function getUserProfile(username: string): Promise<{
   const service = createServiceClient()
   const mediaItems = await getMediaItems(service, typedProfile.id)
 
-  // Считаем статистику
-  const tvAnimeIds = mediaItems.filter((i) => i.type !== 'movie').map((i) => i.id)
-  let watchedEpisodes: EpisodeForStats[] = []
-
-  if (tvAnimeIds.length > 0) {
-    const { data: seasons } = await service
-      .from('seasons')
-      .select('id, media_item_id')
-      .in('media_item_id', tvAnimeIds)
-
-    if (seasons && seasons.length > 0) {
-      const mediaItemTypeMap = new Map<string, MediaType>(
-        mediaItems.map((i) => [i.id, i.type])
-      )
-      const seasonToMediaItem = new Map<string, string>(
-        (seasons as { id: string; media_item_id: string }[]).map((s) => [s.id, s.media_item_id])
-      )
-      const seasonIds = (seasons as { id: string }[]).map((s) => s.id)
-
-      const { data: episodes } = await service
-        .from('episodes')
-        .select('runtime_minutes, season_id')
-        .eq('is_watched', true)
-        .in('season_id', seasonIds)
-
-      if (episodes) {
-        watchedEpisodes = (episodes as { runtime_minutes: number | null; season_id: string }[]).map(
-          (ep) => ({
-            runtime_minutes: ep.runtime_minutes,
-            media_type: mediaItemTypeMap.get(seasonToMediaItem.get(ep.season_id) ?? '') ?? 'tv',
-          })
-        )
-      }
-    }
-  }
+  // Считаем статистику: минуты сериалов и аниме — агрегатом в БД, без выгрузки серий
+  const tvAnimeItems = mediaItems.filter((i) => i.type !== 'movie')
+  const minutesByItem = await getWatchedMinutes(
+    service,
+    tvAnimeItems.map((i) => i.id)
+  )
+  const watchedEpisodes: EpisodeForStats[] = tvAnimeItems.map((i) => ({
+    runtime_minutes: minutesByItem.get(i.id) ?? 0,
+    media_type: i.type,
+  }))
 
   const stats = computeStats(mediaItems, watchedEpisodes)
   return { profile: typedProfile, mediaItems, stats }
