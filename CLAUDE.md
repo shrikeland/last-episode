@@ -250,6 +250,12 @@ npm run lint    # 0 errors
 | Stats page correct totals | `tests/stats.spec.ts` | P1 |
 | Recommendation stream renders | `tests/recommendations.spec.ts` | P1 |
 
+**Smoke vs full (CI, `.github/workflows/e2e.yml`):**
+- Pull requests run only tests tagged `{ tag: '@smoke' }` (`--grep @smoke`, ~2 min); push to `main` runs the full suite
+- Smoke = critical paths (login, guard redirect, library → media, search + add dialog, status change, episode toggle) + main pages render
+- Never tag destructive or slow tests `@smoke` (global logout TC-AUTH-010, delete TC-LIB-004, `auto-complete-status.spec`)
+- Local: `cd e2e && npm run test:smoke`
+
 **Playwright patterns for this project:**
 - Use `storageState` for auth session reuse across tests
 - Intercept TMDB calls with `page.route()` fixture data (avoid flaky network)

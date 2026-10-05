@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   e2e:
-    name: Playwright (chromium)
+    # PRs run only the @smoke-tagged tests (~2 min); the full suite runs after merge on push to main
+    name: Playwright (chromium, ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # TEST_USER_* and VERCEL_BYPASS_SECRET are environment secrets of "Production",
@@ -50,7 +51,8 @@ jobs:
           VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
           HEADLESS: true
           CI: true
-        run: npx playwright test --project=chromium
+          GREP_ARGS: ${{ github.event_name == 'pull_request' && '--grep @smoke' || '' }}
+        run: npx playwright test --project=chromium $GREP_ARGS
 
       - name: Upload Playwright report
         if: always()

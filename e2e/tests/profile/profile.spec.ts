@@ -14,7 +14,7 @@ test('TC-PROFILE-002: unauthenticated /profile/[username] redirects to /login', 
   await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
 })
 
-authTest('TC-PROFILE-001: own profile page loads with username heading', async ({ authenticatedPage: page }) => {
+authTest('TC-PROFILE-001: own profile page loads with username heading', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   // Username comes from the signed-in account, not a constant — CI and local runs use different users
   await page.goto('/library', { waitUntil: 'domcontentloaded' })

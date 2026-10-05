@@ -16,7 +16,7 @@ test.describe('Auth', () => {
 
   // ─── Login ──────────────────────────────────────────────────────────────
 
-  test('TC-AUTH-001: successful login redirects to /library', async ({ page }) => {
+  test('TC-AUTH-001: successful login redirects to /library', { tag: '@smoke' }, async ({ page }) => {
     test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const login = new LoginPage(page)
     await login.goto()
@@ -54,7 +54,7 @@ test.describe('Auth', () => {
 
   // ─── Protected routes ────────────────────────────────────────────────────
 
-  test('TC-AUTH-004: unauthenticated user is redirected from /library to /login', async ({ page }) => {
+  test('TC-AUTH-004: unauthenticated user is redirected from /library to /login', { tag: '@smoke' }, async ({ page }) => {
     test.skip(!reachable, 'BASE_URL not reachable from this environment')
     await page.goto('/library', { waitUntil: 'domcontentloaded' })
     await expect(page).toHaveURL(/login/, { timeout: 15000 })

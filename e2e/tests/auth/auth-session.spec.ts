@@ -11,7 +11,7 @@ authTest.beforeAll(async () => {
 /**
  * TC-AUTH-011: storageState reuse — authenticated page loads /library without re-login
  */
-authTest('TC-AUTH-011: stored session opens /library without login', async ({ authenticatedPage: page }) => {
+authTest('TC-AUTH-011: stored session opens /library without login', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
   authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
   await page.goto('/library', { waitUntil: 'networkidle' })
   await expect(page).toHaveURL(/library/, { timeout: 15000 })

@@ -4,7 +4,17 @@ Playwright test suite for https://www.episode.watch
 
 ## CI/CD (GitHub Actions)
 
-Tests run automatically on every push to `main` and on pull requests via `.github/workflows/e2e.yml`.
+Tests run automatically via `.github/workflows/e2e.yml`:
+
+| Trigger | What runs | Time |
+|---|---|---|
+| Pull request to `main` | smoke only — tests tagged `@smoke` (`--grep @smoke`) | ~2 min |
+| Push to `main` | full suite | ~10 min |
+
+Smoke covers the critical paths (login, auth guard, library → media page, search + add dialog,
+status change, episode toggle) plus a render check of stats / recommendations / community / profile.
+To add a test to smoke, pass `{ tag: '@smoke' }` as the second argument of `test(...)`.
+Keep destructive (TC-AUTH-010 logout, TC-LIB-004 delete) and slow (`auto-complete-status.spec`) tests out of it.
 
 ### Required GitHub secrets
 
@@ -33,6 +43,9 @@ cp .env.example .env
 Run against the deployed app:
 ```bash
 npm test
+
+# Smoke subset only (what PRs run in CI)
+npm run test:smoke
 
 # Headed mode (visible browser)
 npm run test:headed
