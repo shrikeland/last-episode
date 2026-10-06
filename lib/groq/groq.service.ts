@@ -1,5 +1,16 @@
 const GROQ_BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
+// Groq retires models regularly (llama-4-scout was shut down 2026-07-17 → 404 model_not_found).
+// Check https://console.groq.com/docs/deprecations; GROQ_MODEL overrides without a code change.
+const DEFAULT_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+
+/** gpt-oss models reason before answering: keep it short for latency and drop the
+ *  reasoning text from the response (content stays the plain answer either way). */
+function modelOptions(model: string): Record<string, unknown> {
+  if (model.startsWith('openai/gpt-oss')) {
+    return { reasoning_effort: 'low', include_reasoning: false }
+  }
+  return {}
+}
 
 function getApiKey(): string {
   const key = process.env.GROQ_API_KEY
@@ -29,7 +40,7 @@ export async function generate(
       Authorization: `Bearer ${getApiKey()}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model, messages, stream: false, temperature: 0.7 }),
+    body: JSON.stringify({ model, messages, stream: false, temperature: 0.7, ...modelOptions(model) }),
   })
 
   if (!res.ok) {
@@ -62,7 +73,14 @@ export async function generateStream(
       Authorization: `Bearer ${getApiKey()}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model, messages, stream: true, temperature: 0.8, stream_options: { include_usage: true } }),
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: true,
+      temperature: 0.8,
+      stream_options: { include_usage: true },
+      ...modelOptions(model),
+    }),
   })
 
   if (!res.ok) {
