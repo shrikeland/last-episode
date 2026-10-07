@@ -53,7 +53,6 @@ export const THROWAWAY_TITLES = {
   media: { query: 'Fleabag', kind: 'tv', tmdbId: 67070, title: 'Дрянь' },
   /**
    * AI recommendations (part E): the real TMDB title inside the mocked stream.
-   * Not Koyaanisqatsi: TC-LIB-004 still adds and deletes that one until part B rewrites it
    */
   recs: { query: 'Powaqqatsi', kind: 'movie', tmdbId: 24348, title: 'Поваккатси' },
   /** Social scenarios (part F) */
