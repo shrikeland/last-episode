@@ -73,7 +73,7 @@ test('TC-MEDIA-004: «Отметить сезон» checks every episode of that
   await expectWatched(mediaPage, 1, () => false)
 })
 
-test('TC-MEDIA-007: ticking and unticking episodes survives a reload', async ({ page, mediaPage, throwawayTitle }) => {
+test('TC-MEDIA-007: ticking and unticking episodes survives a reload', { tag: '@smoke' }, async ({ page, mediaPage, throwawayTitle }) => {
   const { mediaUrl } = await throwawayTitle('media')
   await open(page, mediaPage, mediaUrl)
   await mediaPage.openSeason(0)

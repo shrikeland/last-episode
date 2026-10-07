@@ -22,7 +22,8 @@ const AUTH_PAGES = [
 ]
 
 for (const { id, path } of AUTH_PAGES) {
-  test(`${id}: signed-in user on ${path} is redirected to /library`, async ({ page, navbar }) => {
+  // One auth page is enough for the PR smoke run — both go through the same proxy.ts branch
+  test(`${id}: signed-in user on ${path} is redirected to /library`, path === '/login' ? { tag: '@smoke' } : {}, async ({ page, navbar }) => {
     const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
     await expect(page).toHaveURL((url) => url.pathname === '/library')
     // The redirect came from the server (proxy.ts), not from a client-side router.push after render

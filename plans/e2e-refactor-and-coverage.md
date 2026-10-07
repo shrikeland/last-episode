@@ -172,3 +172,22 @@ CI: открыть PR и убедиться, что смоук зелёный и
 - **Время полного прогона** растёт. Если не уложимся в 20 мин, вынести read-only тесты (guest, stats, навигация) в параллельные воркеры.
 - **Публичные артефакты CI:** трейсы выключены в CI. Если для отладки понадобятся, включать только локально.
 - **Следующий шаг вне этого плана:** гонять PR-смоук на Vercel preview вместо прода.
+
+---
+
+## Status (2026-10-08)
+
+- [x] A — foundation (`5aaa432`)
+- [x] B — library & search
+- [x] C — title page & episode tracking
+- [x] D — stats, navigation, account
+- [x] E — AI recommendations (mocked)
+- [x] F — social, two users
+- [x] G — smoke list (16 tests + setup/seed, ~1 min locally), README, CLAUDE.md / AGENTS.md, autotests-plans marked superseded
+
+Result: 86 tests in 21 files; full suite green twice in a row against prod (5.4 / 6.6 min), smoke 57 s,
+no throwaway titles left in the library. Found during the work (app, not fixed here): status change
+unticks a just-ticked episode in the UI (revalidatePath re-render), intro lost if the recommendation
+stream arrives in one chunk, no custom 404 (HTTP 200 + Next default page), friend request from the
+other side creates a second pending row instead of accepting, friend actions have no error rollback,
+dock and friend buttons lack a permanent accessible name.

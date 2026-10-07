@@ -16,7 +16,7 @@ const DOCK_ROUTES: { item: DockItem; path: string; heading: string }[] = [
   { item: 'Библиотека', path: '/library', heading: 'Библиотека' },
 ]
 
-test('TC-NAV-001: every AppDock item opens its page', async ({ page, navbar }) => {
+test('TC-NAV-001: every AppDock item opens its page', { tag: '@smoke' }, async ({ page, navbar }) => {
   await page.goto('/library', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { level: 1, name: 'Библиотека' })).toBeVisible()
 
