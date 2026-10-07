@@ -19,12 +19,16 @@ export interface CatalogTitle {
  * - two movies: TC-LIB-SORT-003 needs ≥2 cards in the flat `type=movie` list
  * - a TV show with one season of 5 episodes: TC-MEDIA-003/004 and auto-complete-status.spec
  *   (it looks the show up by its Russian title «Чернобыль»)
+ * - two more movies: /recommendations locks the questionnaire below 5 library titles (server-side
+ *   count, no mock lifts it) — the seed alone keeps the account at ≥5
  * Specs never delete them.
  */
 export const SEED_TITLES: readonly CatalogTitle[] = [
   { query: 'Inception', kind: 'movie', tmdbId: 27205 },
   { query: 'Interstellar', kind: 'movie', tmdbId: 157336 },
   { query: 'Chernobyl', kind: 'tv', tmdbId: 87108 },
+  { query: 'The Matrix', kind: 'movie', tmdbId: 603 },
+  { query: 'Parasite 2019', kind: 'movie', tmdbId: 496243 },
 ]
 
 export interface ThrowawayTitle extends CatalogTitle {
