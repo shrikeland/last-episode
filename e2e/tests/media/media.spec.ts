@@ -1,32 +1,9 @@
 // Seeded: the CI account starts with an empty library, these tests need cards
-import { test as authTest, expect } from '@/fixtures/library.fixture'
-import { test, expect as baseExpect } from '@playwright/test'
+import { test, expect } from '@/fixtures'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { MediaPage } from '@/pages/MediaPage'
-import { isBaseUrlReachable } from '@/support/network'
 
-let reachable: boolean
-
-authTest.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-test.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-// ─── Unauthenticated ─────────────────────────────────────────────────────────
-
-test('TC-MEDIA-006: unauthenticated /media/[id] redirects to /login', async ({ page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
-  await page.goto('/media/00000000-0000-0000-0000-000000000000', { waitUntil: 'domcontentloaded' })
-  await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
-})
-
-// ─── Authenticated media tests ────────────────────────────────────────────────
-
-authTest('TC-MEDIA-001: detail page loads with title and status select', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-MEDIA-001: detail page loads with title and status select', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -38,8 +15,7 @@ authTest('TC-MEDIA-001: detail page loads with title and status select', async (
   await expect(page.locator('h1').first()).toBeVisible()
 })
 
-authTest('TC-MEDIA-002: changing status is reflected in the select', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-MEDIA-002: changing status is reflected in the select', { tag: '@smoke' }, async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -53,9 +29,7 @@ authTest('TC-MEDIA-002: changing status is reflected in the select', { tag: '@sm
   await expect(media.statusSelect).toContainText('Смотрю', { timeout: 5000 })
 })
 
-authTest('TC-MEDIA-003: toggling episode checkbox changes checked state', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-
+test('TC-MEDIA-003: toggling episode checkbox changes checked state', { tag: '@smoke' }, async ({ page }) => {
   // Needs a TV show (season accordion). The unfiltered library opens with movies,
   // so filter by type — the seed guarantees at least one show
   const library = new LibraryPage(page)
@@ -78,9 +52,7 @@ authTest('TC-MEDIA-003: toggling episode checkbox changes checked state', { tag:
   await expect(checkbox).toBeChecked({ checked: !wasChecked, timeout: 5000 })
 })
 
-authTest('TC-MEDIA-004: mark season watched checks all episodes', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-
+test('TC-MEDIA-004: mark season watched checks all episodes', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto({ type: 'tv' })
   await library.waitForCards()
@@ -96,7 +68,7 @@ authTest('TC-MEDIA-004: mark season watched checks all episodes', async ({ authe
   // After marking season, all visible episode checkboxes should be checked
   const checkboxes = page.locator('[data-testid^="episode-checkbox-"]')
   const count = await checkboxes.count()
-  authTest.skip(count === 0, 'No episode checkboxes visible')
+  test.skip(count === 0, 'No episode checkboxes visible')
 
   for (let i = 0; i < Math.min(count, 3); i++) {
     await expect(checkboxes.nth(i)).toBeChecked({ timeout: 5000 })

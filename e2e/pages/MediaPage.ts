@@ -1,4 +1,5 @@
 import { type Page, type Locator, expect } from '@playwright/test'
+import { waitForServerAction } from '@/support/actions'
 
 export class MediaPage {
   constructor(private readonly page: Page) {}
@@ -55,12 +56,9 @@ export class MediaPage {
     return this.episodeCheckboxes().nth(index).locator('xpath=..')
   }
 
-  /** Клик, который дергает server action: ждём POST, чтобы сохранение не оборвалось навигацией. */
+  /** Клик, который дергает server action: ждём его ответ, чтобы сохранение не оборвалось навигацией. */
   async clickAndSave(target: Locator) {
-    await Promise.all([
-      this.page.waitForResponse((res) => res.request().method() === 'POST', { timeout: 15000 }),
-      target.click(),
-    ])
+    await waitForServerAction(this.page, () => target.click())
   }
 
   /** Тост «Все серии отмечены» из SeasonAccordion. */

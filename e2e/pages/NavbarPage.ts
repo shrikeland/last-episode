@@ -1,4 +1,5 @@
 import { type Page, expect } from '@playwright/test'
+import { waitForHydration } from '@/support/actions'
 
 export class NavbarPage {
   constructor(private readonly page: Page) {}
@@ -12,6 +13,8 @@ export class NavbarPage {
 
   /** Username of the signed-in user, read from the profile link in the account menu. */
   async getOwnUsername(): Promise<string> {
+    // Callers may come straight from goto(..., 'domcontentloaded'): a pre-hydration click is lost
+    await waitForHydration(this.page.getByTestId('avatar-button'))
     await this.page.getByTestId('avatar-button').click()
     const link = this.page.getByTestId('menu-profile-link')
     await link.waitFor({ state: 'visible' })

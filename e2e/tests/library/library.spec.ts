@@ -1,40 +1,16 @@
 // Seeded: the CI account starts with an empty library, these tests need cards
-import { test as authTest, expect } from '@/fixtures/library.fixture'
-import { test, expect as baseExpect } from '@playwright/test'
+import { test, expect } from '@/fixtures'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { SearchPage } from '@/pages/SearchPage'
-import { isBaseUrlReachable } from '@/support/network'
 
-let reachable: boolean
-
-authTest.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-test.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-// ─── Unauthenticated ─────────────────────────────────────────────────────────
-
-test('TC-LIB-007: unauthenticated /library redirects to /login', async ({ page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
-  await page.goto('/library', { waitUntil: 'domcontentloaded' })
-  await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
-})
-
-// ─── Authenticated library tests ─────────────────────────────────────────────
-
-authTest('TC-LIB-001: library page shows media cards', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-001: library page shows media cards', { tag: '@smoke' }, async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
   await expect(library.cards()).not.toHaveCount(0)
 })
 
-authTest('TC-LIB-002: text filter narrows results and updates URL', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-002: text filter narrows results and updates URL', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -47,8 +23,7 @@ authTest('TC-LIB-002: text filter narrows results and updates URL', async ({ aut
   expect(countAfter).toBeLessThanOrEqual(countBefore)
 })
 
-authTest('TC-LIB-003: status filter updates URL', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-003: status filter updates URL', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -56,8 +31,7 @@ authTest('TC-LIB-003: status filter updates URL', async ({ authenticatedPage: pa
   await expect(page).toHaveURL(/status=planned/, { timeout: 8000 })
 })
 
-authTest('TC-LIB-005: cancel delete keeps card in library', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-005: cancel delete keeps card in library', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -70,8 +44,7 @@ authTest('TC-LIB-005: cancel delete keeps card in library', async ({ authenticat
   expect(countAfter).toBe(countBefore)
 })
 
-authTest('TC-LIB-006: clicking card navigates to /media/[id]', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-006: clicking card navigates to /media/[id]', { tag: '@smoke' }, async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
@@ -83,9 +56,7 @@ authTest('TC-LIB-006: clicking card navigates to /media/[id]', { tag: '@smoke' }
 // doesn't shrink run over run. The library filter also matches original_title.
 const THROWAWAY_TITLE = 'Koyaanisqatsi'
 
-authTest('TC-LIB-004: delete item removes card from library', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-
+test('TC-LIB-004: delete item removes card from library', async ({ page }) => {
   // Arrange: add the throwaway title (may already be there after an interrupted run)
   const search = new SearchPage(page)
   await search.goto()

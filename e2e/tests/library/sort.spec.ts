@@ -1,37 +1,28 @@
 // Seeded: TC-LIB-SORT-003 needs ≥2 movies, the others need any card
-import { test, expect } from '@/fixtures/library.fixture'
+import { test, expect } from '@/fixtures'
 import { LibraryPage } from '@/pages/LibraryPage'
 import { MediaPage } from '@/pages/MediaPage'
-import { isBaseUrlReachable } from '@/support/network'
 
-let reachable: boolean
-
-test.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
 
 function cardId(testId: string | null): string {
   return (testId ?? '').replace('media-card-', '')
 }
 
-test('TC-LIB-SORT-001: default sort is "Недавно добавленные"', async ({ authenticatedPage: page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-SORT-001: default sort is "Недавно добавленные"', async ({ page }) => {
   const library = new LibraryPage(page)
   await library.goto()
   await library.waitForCards()
   await expect(page.getByTestId('library-sort')).toContainText('Недавно добавленные')
 })
 
-test('TC-LIB-SORT-002: unknown sort param falls back to default instead of crashing', async ({ authenticatedPage: page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-SORT-002: unknown sort param falls back to default instead of crashing', async ({ page }) => {
   const library = new LibraryPage(page)
   await page.goto('/library?sort=foo&dir=sideways', { waitUntil: 'networkidle' })
   await library.waitForCards()
   await expect(page.getByTestId('library-sort')).toContainText('Недавно добавленные')
 })
 
-test('TC-LIB-SORT-003: changing a title\'s status moves it to the top of "Недавно обновлённые"', async ({ authenticatedPage: page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-LIB-SORT-003: changing a title\'s status moves it to the top of "Недавно обновлённые"', async ({ page }) => {
   const library = new LibraryPage(page)
 
   // Фильтр по типу даёт плоский список без секций — порядок читается напрямую

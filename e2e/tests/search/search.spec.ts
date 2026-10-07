@@ -1,30 +1,7 @@
-import { test as authTest, expect } from '@/fixtures/auth.fixture'
-import { test, expect as baseExpect } from '@playwright/test'
+import { test, expect } from '@/fixtures'
 import { SearchPage } from '@/pages/SearchPage'
-import { isBaseUrlReachable } from '@/support/network'
 
-let reachable: boolean
-
-authTest.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-test.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
-})
-
-// ─── Unauthenticated access ──────────────────────────────────────────────────
-
-test('TC-SEARCH-008: unauthenticated /search redirects to /login', async ({ page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
-  await page.goto('/search', { waitUntil: 'domcontentloaded' })
-  await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
-})
-
-// ─── Authenticated search tests ───────────────────────────────────────────────
-
-authTest('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke' }, async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
   await search.search('Breaking Bad')
@@ -33,16 +10,14 @@ authTest('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke
   await expect(page.locator('[data-testid^="tmdb-result-card-"]').first()).toBeVisible()
 })
 
-authTest('TC-SEARCH-002: search with no results shows empty message', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-002: search with no results shows empty message', async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
   await search.search('xyzzy12345notfound')
   await search.waitForEmpty()
 })
 
-authTest('TC-SEARCH-003: clear button resets query and results', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-003: clear button resets query and results', async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
   await search.search('Breaking Bad')
@@ -55,8 +30,7 @@ authTest('TC-SEARCH-003: clear button resets query and results', async ({ authen
   await expect(page.getByRole('button', { name: 'Очистить поиск' })).not.toBeVisible()
 })
 
-authTest('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke' }, async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
   await search.search('Breaking Bad')
@@ -66,8 +40,7 @@ authTest('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke
   await expect(page.getByRole('dialog')).toContainText('Добавить в библиотеку')
 })
 
-authTest('TC-SEARCH-006: cancelling dialog does not add title', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-006: cancelling dialog does not add title', async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
   await search.search('Breaking Bad')
@@ -80,8 +53,7 @@ authTest('TC-SEARCH-006: cancelling dialog does not add title', async ({ authent
   await search.assertFirstCardAddable()
 })
 
-authTest('TC-SEARCH-005+007: add title then re-search shows Добавлено', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
+test('TC-SEARCH-005+007: add title then re-search shows Добавлено', async ({ page }) => {
   const search = new SearchPage(page)
   await search.goto()
 

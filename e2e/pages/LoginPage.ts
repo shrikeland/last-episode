@@ -1,4 +1,5 @@
 import { type Page, expect } from '@playwright/test'
+import { fillSecret } from '@/support/actions'
 
 export class LoginPage {
   constructor(private readonly page: Page) {}
@@ -7,12 +8,13 @@ export class LoginPage {
     await this.page.goto('/login', { waitUntil: 'networkidle' })
   }
 
+  // fillSecret, not fill(): the CI report (public repo) would show «Fill "<value>"» steps with credentials
   async fillEmail(email: string) {
-    await this.page.getByTestId('login-email-input').fill(email)
+    await fillSecret(this.page.getByTestId('login-email-input'), email)
   }
 
   async fillPassword(password: string) {
-    await this.page.getByTestId('login-password-input').fill(password)
+    await fillSecret(this.page.getByTestId('login-password-input'), password)
   }
 
   async submit() {
