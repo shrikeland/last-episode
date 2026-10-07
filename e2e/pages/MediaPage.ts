@@ -1,10 +1,5 @@
-import { type Page, type Locator, type Request, type Response, expect } from '@playwright/test'
-import { waitForHydration } from '@/support/actions'
-
-/** The request of a Next.js server action — same check as support/actions.ts waitForServerAction. */
-function isServerAction(res: Response) {
-  return res.request().method() === 'POST' && !!res.request().headers()['next-action']
-}
+import { type Page, type Locator, expect } from '@playwright/test'
+import { waitForHydration, waitForServerAction } from '@/support/actions'
 
 /**
  * /media/<id> — the title page: status, rating, notes, genres, related titles and, for shows,
@@ -200,40 +195,9 @@ export class MediaPage {
 
   // ── Saving ───────────────────────────────────────────────────────────────
 
-  /**
-   * Runs `trigger` and waits until the server action it fires has really finished.
-   *
-   * Stricter than support/actions.ts `waitForServerAction`, which resolves on the response
-   * HEADERS. Next sends them before the action has run: the first RSC row is
-   * `{"a":"$@1",…}` — the result is a promise reference, filled in by a later row once the action
-   * resolves (and, for updateStatus, followed by the re-rendered page). On a slow prod moment the
-   * headers came at once and the body more than a minute later, so «headers arrived» ≠ «saved».
-   *
-   * The end of the body is awaited through the request events, not `response.finished()`: the
-   * client sometimes aborts the body of updateStatus (net::ERR_ABORTED right after the headers),
-   * and for an aborted body `finished()` never settles — the test hung until its timeout.
-   * `requestfailed` is accepted as the end too; a lost save then shows up in the reload checks.
-   */
-  private async saved<T>(trigger: () => Promise<T>): Promise<T> {
-    // Listening before the click: a body that ends together with the headers is not missed
-    const ended = new Set<Request>()
-    const onEnd = (req: Request) => void ended.add(req)
-    this.page.on('requestfinished', onEnd)
-    this.page.on('requestfailed', onEnd)
-    try {
-      const [response, result] = await Promise.all([
-        this.page.waitForResponse(isServerAction, { timeout: 15_000 }),
-        trigger(),
-      ])
-      const request = response.request()
-      await expect
-        .poll(() => ended.has(request), { message: 'server action response body never ended', timeout: 30_000 })
-        .toBe(true)
-      return result
-    } finally {
-      this.page.off('requestfinished', onEnd)
-      this.page.off('requestfailed', onEnd)
-    }
+  /** Runs `trigger` and waits until the server action it fires has finished — see waitForServerAction. */
+  private saved<T>(trigger: () => Promise<T>): Promise<T> {
+    return waitForServerAction(this.page, trigger)
   }
 
   /** Клик, который дергает server action: ждём, пока он завершится, чтобы сохранение не оборвалось навигацией. */

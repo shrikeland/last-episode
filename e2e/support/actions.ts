@@ -1,24 +1,48 @@
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect, type Locator, type Page, type Request } from '@playwright/test'
 
 /**
- * Runs `trigger` and waits for the Next.js server action it fires: a POST whose request carries
- * the `next-action` header. Use instead of a fixed sleep after clicks that save data — the click
- * returns right away, and a navigation started before the action answered may cancel the save.
- * Resolves with whatever `trigger` returns.
+ * Runs `trigger` and waits until the Next.js server action it fires (a POST carrying the
+ * `next-action` header) has really finished. Use instead of a fixed sleep after clicks that save
+ * data — the click returns right away, and a navigation started before the action ended may
+ * cancel the save. Resolves with whatever `trigger` returns.
+ *
+ * The response HEADERS are not enough: Next sends them before the action has run — the first RSC
+ * row is `{"a":"$@1",…}`, a promise reference filled in by a later row once the action resolves
+ * (for actions with revalidatePath it is followed by the re-rendered page). On a slow prod moment
+ * the headers came at once and the body more than a minute later.
+ *
+ * The end of the body is awaited through the request events, not `response.finished()`: the
+ * client sometimes aborts the body (net::ERR_ABORTED right after the headers), and for an aborted
+ * body `finished()` never settles. `requestfailed` counts as the end too — a lost save then shows
+ * up in the test's reload checks.
  */
 export async function waitForServerAction<T>(
   page: Page,
   trigger: () => Promise<T>,
   timeout = 15_000,
 ): Promise<T> {
-  const [, result] = await Promise.all([
-    page.waitForResponse(
-      (res) => res.request().method() === 'POST' && !!res.request().headers()['next-action'],
-      { timeout },
-    ),
-    trigger(),
-  ])
-  return result
+  // Listening before the trigger: a body that ends together with the headers is not missed
+  const ended = new Set<Request>()
+  const onEnd = (req: Request) => void ended.add(req)
+  page.on('requestfinished', onEnd)
+  page.on('requestfailed', onEnd)
+  try {
+    const [response, result] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.request().method() === 'POST' && !!res.request().headers()['next-action'],
+        { timeout },
+      ),
+      trigger(),
+    ])
+    const request = response.request()
+    await expect
+      .poll(() => ended.has(request), { message: 'server action response body never ended', timeout: 30_000 })
+      .toBe(true)
+    return result
+  } finally {
+    page.off('requestfinished', onEnd)
+    page.off('requestfailed', onEnd)
+  }
 }
 
 /**

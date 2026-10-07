@@ -17,8 +17,8 @@ export interface CatalogTitle {
  * Titles that must always be in the user's library — added by tests/setup/seed.setup.ts.
  * The CI test account starts empty («Коллекция пуста»), so they are added through the UI.
  * - two movies: TC-LIB-SORT-003 needs ≥2 cards in the flat `type=movie` list
- * - a TV show with one season of 5 episodes: TC-MEDIA-003/004 and auto-complete-status.spec
- *   (it looks the show up by its Russian title «Чернобыль»)
+ * - a TV show («Чернобыль»): the `type=tv` / genre filters of the library specs and the
+ *   «Сериал» section of the own profile; episode tracking runs on throwaway shows, not on it
  * - two more movies: /recommendations locks the questionnaire below 5 library titles (server-side
  *   count, no mock lifts it) — the seed alone keeps the account at ≥5
  * Specs never delete them.
