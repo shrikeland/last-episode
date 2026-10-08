@@ -240,36 +240,31 @@ npm run build   # 0 errors
 npm run lint    # 0 errors
 ```
 
-**Playwright E2E (planned — add incrementally as features stabilize):**
+**Playwright E2E** — separate package in `e2e/`, runs against **production** under two test accounts
+(main + "friend" for social scenarios), one worker, chromium. Structure, fixtures, test data and the
+full rules: `e2e/README.md`.
 
-| Test | File | Priority |
-|------|------|----------|
-| Login / logout | `tests/auth.spec.ts` | P0 |
-| Add title to library (TMDB search) | `tests/library.spec.ts` | P0 |
-| Mark episode watched | `tests/episode.spec.ts` | P0 |
-| Change watch status | `tests/library.spec.ts` | P0 |
-| Stats page correct totals | `tests/stats.spec.ts` | P1 |
-| Recommendation stream renders | `tests/recommendations.spec.ts` | P1 |
+| Area | Specs (`e2e/tests/`) | Covers |
+|------|------|--------|
+| Auth | `guest/*`, `auth/*` | login, register validation, confirmation link, guest → `/login` guard, signed-in → `/library`, logout |
+| Library & search | `library/*`, `search/*` | add with status → library → delete, filters, sort, «Продолжить просмотр», changes visible after «Назад» |
+| Title page | `media/*` | status, episodes / season / «по эту серию» / «отметить всё», rating, notes — re-checked after reload; related titles, auto-complete toast |
+| Stats, navigation, profile | `stats/*`, `navigation/*`, `profile/*` | status count delta, links to filtered library, every dock item, own profile |
+| Recommendations | `recommendations/*` | questionnaire → stream → cards → add, errors, taste profile — Groq mocked with `page.route` |
+| Social | `social/*` | friend request decline / cancel / accept / remove (two users), friend profile, «Общее», «У друзей» |
 
 **Smoke vs full (CI, `.github/workflows/e2e.yml`):**
-- Pull requests run only tests tagged `{ tag: '@smoke' }` (`--grep @smoke`, ~2 min); push to `main` runs the full suite
-- Smoke = critical paths (login, guard redirect, library → media, search + add dialog, status change, episode toggle) + main pages render
-- Never tag destructive or slow tests `@smoke` (global logout TC-AUTH-010, delete TC-LIB-004, `auto-complete-status.spec`)
-- Local: `cd e2e && npm run test:smoke`
+- Pull requests run only tests tagged `{ tag: '@smoke' }` (`--grep @smoke`, ~1–2 min); push to `main` runs the full suite (~6–8 min)
+- Projects: `setup` (login of both users) → `seed` → `guest` / `user` → `logout`; `setup` and `seed` run with `--grep` too
+- Never tag `@smoke`: global logout TC-AUTH-010, the serial two-user `social/friends.spec.ts`, slow data-changing tests
+- Local: `cd e2e && npm run test:smoke` / `npm test`
 
-**Playwright patterns for this project:**
-- Use `storageState` for auth session reuse across tests
-- Intercept TMDB calls with `page.route()` fixture data (avoid flaky network)
-- Seed with `supabase db seed` before test run
-- Prefer `data-testid` over CSS selectors for stability
-- CI: `retries: 2`, `trace: 'on-first-retry'`, screenshots on failure
-
-**Manual checklist (until Playwright):**
-- [ ] Login / logout works
-- [ ] Can add title from TMDB search
-- [ ] Episode marking persists on reload
-- [ ] Status change reflects in library grid
-- [ ] Stats page shows correct data
+**Rules when adding E2E tests:**
+- Import `test` / `expect` from `@/fixtures`; in project `user` a plain `page` is already signed in
+- A test that changes data uses `throwawayTitle(key)` or restores the state in `finally`; never assert library totals
+- No `waitForTimeout` / `networkidle` — web-first assertions, `waitForServerAction`, `waitForHydration`
+- No `context.request` / `page.request` with a signed-in context (cookies leak into the public CI log); credentials via `fillSecret`
+- A new `data-testid` / `aria-label` in app code ships in a separate PR, deployed before the tests that need it — CI tests prod
 
 ---
 

@@ -1,51 +1,174 @@
 import { type Page, type Locator, expect } from '@playwright/test'
+import { waitForHydration, waitForServerAction } from '@/support/actions'
 
+/**
+ * /media/<id> — the title page: status, rating, notes, genres, related titles and, for shows,
+ * the season accordion (components/media/SeasonAccordion.tsx).
+ *
+ * Seasons are addressed by their 0-based position on the page, episodes by their number
+ * (the checkbox is labelled «Эпизод <n>: <name>»). Radix unmounts the content of a closed
+ * season, so open it (`openSeason`) before touching its episodes.
+ */
 export class MediaPage {
   constructor(private readonly page: Page) {}
 
+  /** Title heading and status select are rendered and hydrated (the select opens on click). */
   async waitForLoad(timeout = 15000) {
-    await this.page.locator('h1').first().waitFor({ state: 'visible', timeout })
-    await expect(this.page.getByTestId('status-select')).toBeVisible({ timeout })
+    await expect(this.heading).toBeVisible({ timeout })
+    await expect(this.statusSelect).toBeVisible({ timeout })
+    await waitForHydration(this.statusSelect)
   }
 
+  get heading() {
+    return this.page.getByRole('heading', { level: 1 })
+  }
+
+  get backButton() {
+    return this.page.getByTestId('back-button')
+  }
+
+  // ── Status ───────────────────────────────────────────────────────────────
+
+  get statusSelect() {
+    return this.page.getByTestId('status-select')
+  }
+
+  /**
+   * Picks a status in the select. Does not wait for the save: use `setStatus` (or wrap it in
+   * `waitForServerAction`) before navigating away.
+   *
+   * App bug: updateStatus calls revalidatePath, and Next 16 re-renders the CURRENT page from
+   * that action. The re-render streams in after the action's response headers, and its fresh
+   * `seasons` prop resets SeasonAccordion's episodeMap — an episode ticked in between is saved
+   * but shows unchecked. Tick episodes BEFORE a status change, or reload the page after it.
+   */
   async changeStatus(statusLabel: string) {
-    await this.page.getByTestId('status-select').click()
-    await this.page.getByRole('option', { name: statusLabel }).click()
-    await this.page.waitForTimeout(500)
+    await waitForHydration(this.statusSelect)
+    await this.statusSelect.click()
+    await this.page.getByRole('option', { name: statusLabel, exact: true }).click()
+  }
+
+  /** `changeStatus` + waits for the save and the select showing the new value. */
+  async setStatus(statusLabel: string) {
+    await this.saved(() => this.changeStatus(statusLabel))
+    await expect(this.statusSelect).toHaveText(statusLabel)
+  }
+
+  // ── Rating / notes ───────────────────────────────────────────────────────
+
+  get ratingInput() {
+    return this.page.getByTestId('rating-input')
+  }
+
+  /** «7.5 / 10», or «—» without a rating. */
+  get ratingValue() {
+    return this.ratingInput.getByText(/^(—|\d+(\.5)? \/ 10)$/)
+  }
+
+  /**
+   * Clicks the half-star of `value` (0.5 … 10) and waits for the save. Clicking the current
+   * rating again clears it. The mouse is moved away afterwards: while it hovers a star the
+   * label shows the hovered value, not the saved one.
+   */
+  async clickRating(value: number) {
+    const star = this.ratingInput.getByRole('button', { name: `Оценка ${value}`, exact: true })
+    await waitForHydration(star)
+    await this.saved(() => star.click())
+    await this.page.mouse.move(0, 0)
+  }
+
+  get notesEditor() {
+    return this.page.getByTestId('notes-editor')
+  }
+
+  /** Replaces the notes and waits for the debounced (1.5 s) updateNotes save. */
+  async saveNotes(text: string) {
+    await waitForHydration(this.notesEditor)
+    await this.saved(() => this.notesEditor.fill(text))
+  }
+
+  // ── Genres ───────────────────────────────────────────────────────────────
+
+  /** Genre badges under the title, each a link to `/library?genre=<genre>`. */
+  genreLinks() {
+    return this.page.getByTestId('media-genre-link')
+  }
+
+  // ── Seasons and episodes ─────────────────────────────────────────────────
+
+  get seasonAccordion() {
+    return this.page.getByTestId('season-accordion')
+  }
+
+  /**
+   * Radix trigger of a season: «Сезон 1 3/6 эп.». The other buttons of the accordion («Отметить
+   * всё» in the progress header, «Отметить сезон» next to each trigger) change data, only the
+   * trigger carries aria-expanded.
+   */
+  seasonTrigger(index: number) {
+    return this.seasonAccordion.locator('button[aria-expanded]').nth(index)
+  }
+
+  /** A whole season: trigger, «Отметить сезон» and (when open) its episode rows. */
+  seasonItem(index: number) {
+    // season-accordion > Accordion root (data-orientation) > AccordionItem (data-state)
+    return this.seasonAccordion.locator(':scope > [data-orientation] > [data-state]').nth(index)
+  }
+
+  /** «<watched>/<total> эп.» in the trigger of a season. */
+  async expectSeasonProgress(index: number, watched: number, total: number) {
+    await expect(this.seasonTrigger(index)).toContainText(`${watched}/${total} эп.`)
+  }
+
+  async openSeason(index: number) {
+    const trigger = this.seasonTrigger(index)
+    await waitForHydration(trigger)
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await expect(this.seasonEpisodeCheckboxes(index).first()).toBeVisible()
   }
 
   async openFirstSeasonAccordion() {
-    // Только Radix-триггер сезона (у него aria-expanded): первая кнопка в season-accordion —
-    // это «Отметить всё / Снять отметку» в шапке прогресса, клик по ней меняет данные
-    const accordion = this.page.getByTestId('season-accordion')
-    const trigger = accordion.locator('button[aria-expanded]').first()
-    if ((await trigger.getAttribute('aria-expanded')) === 'true') return
-    await trigger.click()
-    await this.page.waitForTimeout(300)
+    await this.openSeason(0)
   }
 
-  async toggleFirstEpisode() {
-    const checkbox = this.page.locator('[data-testid^="episode-checkbox-"]').first()
-    await checkbox.click()
-    return checkbox
+  /** Episode checkboxes of one (open) season, in episode order. */
+  seasonEpisodeCheckboxes(index: number) {
+    return this.seasonItem(index).getByRole('checkbox')
   }
 
-  async markFirstSeasonWatched() {
-    const btn = this.page.locator('[data-testid^="mark-season-button-"]').first()
-    await btn.click()
-    await this.page.waitForTimeout(500)
+  /** Checkbox of episode `episodeNumber` in season `seasonIndex` (open). */
+  episode(seasonIndex: number, episodeNumber: number) {
+    return this.seasonItem(seasonIndex).getByRole('checkbox', { name: new RegExp(`^Эпизод ${episodeNumber}:`) })
   }
 
-  async editNotes(text: string) {
-    const editor = this.page.getByTestId('notes-editor')
-    await editor.click()
-    // Clear existing and type new content
-    await editor.locator('textarea, [contenteditable]').first().fill(text)
-    // Blur to trigger save
-    await this.page.keyboard.press('Escape')
-    await this.page.waitForTimeout(500)
+  /** «Отметить сезон» / «Снять отметку» of a season. */
+  markSeasonButton(index: number) {
+    return this.seasonItem(index).locator('[data-testid^="mark-season-button-"]')
   }
 
+  /** «Отметить по эту серию» — rendered only for an unwatched episode of an open season. */
+  markUpToButton(seasonIndex: number, episodeNumber: number) {
+    return this.seasonItem(seasonIndex).getByRole('button', {
+      name: `Отметить по эпизод ${episodeNumber} включительно`,
+      exact: true,
+    })
+  }
+
+  /** Asked by «Отметить по эту серию» when an earlier season has unwatched episodes. */
+  get markUpToDialog() {
+    return this.page.getByTestId('mark-up-to-dialog')
+  }
+
+  get markUpToSeasonOnly() {
+    return this.markUpToDialog.getByRole('button', { name: 'Только этот сезон' })
+  }
+
+  get markUpToAllPrevious() {
+    return this.markUpToDialog.getByRole('button', { name: 'Все сезоны до этого' })
+  }
+
+  /** Every episode checkbox of every open season. */
   episodeCheckboxes() {
     return this.page.locator('[data-testid^="episode-checkbox-"]')
   }
@@ -55,12 +178,14 @@ export class MediaPage {
     return this.episodeCheckboxes().nth(index).locator('xpath=..')
   }
 
-  /** Клик, который дергает server action: ждём POST, чтобы сохранение не оборвалось навигацией. */
-  async clickAndSave(target: Locator) {
-    await Promise.all([
-      this.page.waitForResponse((res) => res.request().method() === 'POST', { timeout: 15000 }),
-      target.click(),
-    ])
+  /** «Отметить всё» / «Снять отметку» in the progress header. */
+  get markAllTitleButton() {
+    return this.page.getByTestId('mark-all-title-button')
+  }
+
+  /** Green check next to «Прогресс» once every episode of the title is watched. */
+  get titleWatchedIndicator() {
+    return this.page.getByTestId('title-watched-indicator')
   }
 
   /** Тост «Все серии отмечены» из SeasonAccordion. */
@@ -68,15 +193,74 @@ export class MediaPage {
     return this.page.locator('[data-sonner-toast]').filter({ hasText: 'Все серии отмечены' })
   }
 
-  get markAllTitleButton() {
-    return this.page.getByTestId('mark-all-title-button')
+  // ── Saving ───────────────────────────────────────────────────────────────
+
+  /** Runs `trigger` and waits until the server action it fires has finished — see waitForServerAction. */
+  private saved<T>(trigger: () => Promise<T>): Promise<T> {
+    return waitForServerAction(this.page, trigger)
   }
 
-  get statusSelect() {
-    return this.page.getByTestId('status-select')
+  /** Клик, который дергает server action: ждём, пока он завершится, чтобы сохранение не оборвалось навигацией. */
+  async clickAndSave(target: Locator) {
+    await waitForHydration(target)
+    await this.saved(() => target.click())
   }
 
-  get seasonAccordion() {
-    return this.page.getByTestId('season-accordion')
+  /**
+   * `clickAndSave` plus two animation frames: the transition has resolved with the action's
+   * result, and what the client shows in reaction (the «Все серии отмечены» toast) is painted.
+   * For «nothing appears» checks — right after the response an absent toast proves nothing,
+   * the code that would show it may not have run yet.
+   */
+  async clickAndSettle(target: Locator) {
+    await this.clickAndSave(target)
+    await this.page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    )
+  }
+
+  // ── Related titles (TitleRecommendations) ────────────────────────────────
+
+  /** «Рекомендации» — related titles from TMDB (same franchise / similar). */
+  get recommendations() {
+    return this.page.getByRole('region', { name: 'Рекомендации' })
+  }
+
+  /** Poster buttons of the related titles, named «О чём «<title>»». */
+  relatedDetailButtons() {
+    return this.recommendations.getByRole('button', { name: /^О чём «/ })
+  }
+
+  /** Card of the related title `title`. */
+  relatedCard(title: string) {
+    // section > [heading row, scroll row > cards]
+    return this.recommendations
+      .locator(':scope > div:last-child > div')
+      .filter({ has: this.page.getByRole('button', { name: `О чём «${title}»`, exact: true }) })
+  }
+
+  /** «Добавить» / «В библиотеке» at the bottom of a related card. */
+  relatedCardButton(card: Locator) {
+    return card.getByRole('button', { name: /^(Добавить|Добавляю\.\.\.|В библиотеке)$/ })
+  }
+
+  /** RelatedTitleDialog of `title` — its name is «<title> (<year>)». */
+  relatedDialog(title: string) {
+    return this.page.getByRole('dialog', { name: title })
+  }
+
+  /** Opens the overview dialog of a related title through its poster. */
+  async openRelated(title: string) {
+    const poster = this.recommendations.getByRole('button', { name: `О чём «${title}»`, exact: true })
+    await waitForHydration(poster)
+    await poster.click()
+    const dialog = this.relatedDialog(title)
+    await expect(dialog).toBeVisible()
+    return dialog
+  }
+
+  /** AddToLibraryDialog opened from a related title («Добавить» in the overview). */
+  get addDialog() {
+    return this.page.getByRole('dialog', { name: 'Добавить в библиотеку' })
   }
 }

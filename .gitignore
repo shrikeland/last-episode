@@ -67,7 +67,7 @@ e2e/.env
 e2e/playwright-report/
 e2e/test-results/
 e2e/blob-report/
-e2e/support/auth.storage.json
+e2e/.auth/
 .ds-sync/
 ds-bundle/
 .design-sync/

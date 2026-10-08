@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# All runs hit production with the same test user: TC-AUTH-010 signs out globally and
-# TC-LIB-004 deletes a title, so parallel runs break each other — queue them instead.
+# All runs hit production with the same test users: TC-AUTH-010 signs out globally and
+# tests add / delete throwaway titles, so parallel runs break each other — queue them instead.
 concurrency:
   group: e2e-production
   cancel-in-progress: false
@@ -17,8 +17,9 @@ jobs:
     # PRs run only the @smoke-tagged tests (~2 min); the full suite runs after merge on push to main
     name: Playwright (chromium, ${{ github.event_name == 'pull_request' && 'smoke' || 'full' }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # TEST_USER_* and VERCEL_BYPASS_SECRET are environment secrets of "Production",
+    # playwright.config.ts stops the run at 25 min (globalTimeout) — the rest is install + report upload
+    timeout-minutes: 30
+    # TEST_USER_*, TEST_USER2_* and VERCEL_BYPASS_SECRET are environment secrets of "Production",
     # not repository secrets — without this they resolve to empty strings.
     # deployment: false — only borrow the secrets, don't create a GitHub deployment per run.
     environment:
@@ -48,11 +49,15 @@ jobs:
           BASE_URL: https://www.episode.watch
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TEST_USER2_EMAIL: ${{ secrets.TEST_USER2_EMAIL }}
+          TEST_USER2_PASSWORD: ${{ secrets.TEST_USER2_PASSWORD }}
           VERCEL_BYPASS_SECRET: ${{ secrets.VERCEL_BYPASS_SECRET }}
           HEADLESS: true
           CI: true
           GREP_ARGS: ${{ github.event_name == 'pull_request' && '--grep @smoke' || '' }}
-        run: npx playwright test --project=chromium $GREP_ARGS
+        # All projects: setup → seed → guest / user → logout. `--grep` filters only guest / user / logout;
+        # setup and seed are dependencies of `user` and always run in full
+        run: npx playwright test $GREP_ARGS
 
       - name: Upload Playwright report
         if: always()

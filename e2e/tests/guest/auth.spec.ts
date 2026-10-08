@@ -1,23 +1,15 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '@/fixtures'
 import { LoginPage } from '@/pages/LoginPage'
 import { RegisterPage } from '@/pages/RegisterPage'
 import { NavbarPage } from '@/pages/NavbarPage'
-import { isBaseUrlReachable } from '@/support/network'
 
 const EMAIL = process.env.TEST_USER_EMAIL || ''
 const PASSWORD = process.env.TEST_USER_PASSWORD || ''
 
 test.describe('Auth', () => {
-  let reachable: boolean
-
-  test.beforeAll(async () => {
-    reachable = await isBaseUrlReachable()
-  })
-
   // ─── Login ──────────────────────────────────────────────────────────────
 
   test('TC-AUTH-001: successful login redirects to /library', { tag: '@smoke' }, async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const login = new LoginPage(page)
     await login.goto()
     await login.login(EMAIL, PASSWORD)
@@ -26,7 +18,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-002: wrong password shows error toast', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const login = new LoginPage(page)
     await login.goto()
     await login.login(EMAIL, 'wrong-password-xyz')
@@ -35,7 +26,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-003: empty form submission does not trigger Supabase call', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const login = new LoginPage(page)
     await login.goto()
 
@@ -52,24 +42,9 @@ test.describe('Auth', () => {
     expect(supabaseCallMade).toBe(false)
   })
 
-  // ─── Protected routes ────────────────────────────────────────────────────
-
-  test('TC-AUTH-004: unauthenticated user is redirected from /library to /login', { tag: '@smoke' }, async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
-    await page.goto('/library', { waitUntil: 'domcontentloaded' })
-    await expect(page).toHaveURL(/login/, { timeout: 15000 })
-  })
-
-  test('TC-AUTH-004b: unauthenticated user is redirected from /stats to /login', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
-    await page.goto('/stats', { waitUntil: 'domcontentloaded' })
-    await expect(page).toHaveURL(/login/, { timeout: 15000 })
-  })
-
   // ─── Navigation ──────────────────────────────────────────────────────────
 
   test('TC-AUTH-005: login page → register link navigates to /register', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const login = new LoginPage(page)
     await login.goto()
     await login.clickRegisterLink()
@@ -78,7 +53,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-006: register page → login link navigates to /login', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const register = new RegisterPage(page)
     await register.goto()
     await register.clickLoginLink()
@@ -89,7 +63,6 @@ test.describe('Auth', () => {
   // ─── Register validation ─────────────────────────────────────────────────
 
   test('TC-AUTH-007: short password shows inline error', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const register = new RegisterPage(page)
     await register.goto()
     await register.fillPassword('abc')
@@ -97,7 +70,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-008: mismatched passwords show inline error', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const register = new RegisterPage(page)
     await register.goto()
     await register.fillPassword('password123')
@@ -106,7 +78,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-009: username with space shows inline error', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     const register = new RegisterPage(page)
     await register.goto()
     await register.fillUsername('my user')
@@ -114,7 +85,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-014: "email sent" screen → change email returns to form, login button → /login', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     // Подменяем ответ Supabase: пользователь «создан», сессии нет — ждём подтверждения почты.
     // Реальный аккаунт не создаётся.
     await page.route('**/auth/v1/signup**', (route) =>
@@ -157,7 +127,6 @@ test.describe('Auth', () => {
   // ─── Email confirmation link ─────────────────────────────────────────────
 
   test('TC-AUTH-012: confirmation link with code → /login with success toast, once', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     await page.goto('/auth/callback?code=e2e-fake-code', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('Почта подтверждена, можете входить')).toBeVisible({ timeout: 10000 })
     // Параметр убирается из URL, чтобы тост не повторялся при перезагрузке
@@ -168,7 +137,6 @@ test.describe('Auth', () => {
   })
 
   test('TC-AUTH-013: confirmation link without code → /login with error toast', async ({ page }) => {
-    test.skip(!reachable, 'BASE_URL not reachable from this environment')
     await page.goto('/auth/callback?error=access_denied&error_code=otp_expired', {
       waitUntil: 'domcontentloaded',
     })

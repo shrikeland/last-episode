@@ -1,116 +1,88 @@
-import { test as authTest, expect } from '@/fixtures/auth.fixture'
-import { test, expect as baseExpect } from '@playwright/test'
-import { SearchPage } from '@/pages/SearchPage'
-import { isBaseUrlReachable } from '@/support/network'
+// TMDB search. Adding a title end to end (former TC-SEARCH-005+007) lives in
+// tests/library/lifecycle.spec.ts (TC-LIB-004) on the area's throwaway title.
+import { test, expect } from '@/fixtures'
 
-let reachable: boolean
+// Breaking Bad is never added by any test — its result card always offers «Добавить»
+const BREAKING_BAD = { query: 'Breaking Bad', kind: 'tv', tmdbId: 1396 } as const
+// El Camino shows up in the same results — a second, different card for the dialog test
+const EL_CAMINO = { kind: 'movie', tmdbId: 559969 } as const
+// Seed title (SEED_TITLES) — always in the library
+const CHERNOBYL = { query: 'Chernobyl', kind: 'tv', tmdbId: 87108 } as const
 
-authTest.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
+test('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke' }, async ({ searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
+  await expect(searchPage.resultCard(BREAKING_BAD.kind, BREAKING_BAD.tmdbId)).toBeVisible()
 })
 
-test.beforeAll(async () => {
-  reachable = await isBaseUrlReachable()
+test('TC-SEARCH-002: search with no results shows empty message', async ({ searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search('xyzzy12345notfound')
+  await searchPage.waitForEmpty(10000, 'xyzzy12345notfound')
+  await expect(searchPage.resultCards()).toHaveCount(0)
 })
 
-// ─── Unauthenticated access ──────────────────────────────────────────────────
+test('TC-SEARCH-003: clear button resets query and results', async ({ searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
+  await searchPage.waitForResults()
 
-test('TC-SEARCH-008: unauthenticated /search redirects to /login', async ({ page }) => {
-  test.skip(!reachable, 'BASE_URL not reachable from this environment')
-  await page.goto('/search', { waitUntil: 'domcontentloaded' })
-  await baseExpect(page).toHaveURL(/login/, { timeout: 15000 })
+  await searchPage.clearSearch()
+
+  await expect(searchPage.searchInput).toHaveValue('')
+  await expect(searchPage.resultCards()).toHaveCount(0)
+  await expect(searchPage.clearButton).toBeHidden()
 })
 
-// ─── Authenticated search tests ───────────────────────────────────────────────
-
-authTest('TC-SEARCH-001: search returns results for valid query', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-  await search.search('Breaking Bad')
-  await search.waitForResults()
-  // At least one card visible
-  await expect(page.locator('[data-testid^="tmdb-result-card-"]').first()).toBeVisible()
+test('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke' }, async ({ searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
+  const dialog = await searchPage.openAddDialog(searchPage.resultCard(BREAKING_BAD.kind, BREAKING_BAD.tmdbId))
+  await expect(dialog).toContainText('Добавить в библиотеку')
 })
 
-authTest('TC-SEARCH-002: search with no results shows empty message', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-  await search.search('xyzzy12345notfound')
-  await search.waitForEmpty()
+test('TC-SEARCH-006: cancelling dialog does not add title', async ({ page, searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
+  const card = searchPage.resultCard(BREAKING_BAD.kind, BREAKING_BAD.tmdbId)
+  const dialog = await searchPage.openAddDialog(card)
+  await searchPage.cancelAdd()
+
+  await expect(dialog).toBeHidden()
+  await expect(searchPage.addButton(card)).toBeEnabled()
+  // Nothing was saved: a fresh search still offers «Добавить»
+  await page.reload()
+  await expect(searchPage.addButton(card)).toBeEnabled()
 })
 
-authTest('TC-SEARCH-003: clear button resets query and results', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-  await search.search('Breaking Bad')
-  await search.waitForResults()
+test('TC-SEARCH-009: a new query replaces the previous results', async ({ page, searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
+  const breakingBad = searchPage.resultCard(BREAKING_BAD.kind, BREAKING_BAD.tmdbId)
+  await expect(breakingBad).toBeVisible()
 
-  await search.clearSearch()
-
-  await expect(search.searchInput).toHaveValue('')
-  await expect(page.locator('[data-testid^="tmdb-result-card-"]')).toHaveCount(0, { timeout: 5000 })
-  await expect(page.getByRole('button', { name: 'Очистить поиск' })).not.toBeVisible()
+  await searchPage.search(CHERNOBYL.query)
+  const chernobyl = searchPage.resultCard(CHERNOBYL.kind, CHERNOBYL.tmdbId)
+  await expect(chernobyl).toBeVisible()
+  await expect(breakingBad).toHaveCount(0)
+  await expect(page).toHaveURL(/\?q=Chernobyl$/)
+  // The seed title is in the library — the new results carry that too
+  await expect(searchPage.addedButton(chernobyl)).toBeDisabled()
 })
 
-authTest('TC-SEARCH-004: clicking Add opens AddToLibrary dialog', { tag: '@smoke' }, async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-  await search.search('Breaking Bad')
-  await search.waitForResults()
-  await search.clickAddOnFirstResult()
-  await search.assertDialogOpen()
-  await expect(page.getByRole('dialog')).toContainText('Добавить в библиотеку')
-})
+test('TC-SEARCH-010: the add dialog shows the title of the card it was opened from', async ({ searchPage }) => {
+  await searchPage.goto()
+  await searchPage.search(BREAKING_BAD.query)
 
-authTest('TC-SEARCH-006: cancelling dialog does not add title', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-  await search.search('Breaking Bad')
-  await search.waitForResults()
-  await search.clickAddOnFirstResult()
-  await search.assertDialogOpen()
-  await search.cancelAdd()
+  // Not the first card on purpose: the dialog must follow the clicked card
+  const card = searchPage.resultCard(EL_CAMINO.kind, EL_CAMINO.tmdbId)
+  const title = (await searchPage.resultTitle(card).textContent())?.trim() ?? ''
+  expect(title).not.toBe('')
+  await expect(searchPage.firstResultCard()).not.toContainText(title)
 
-  await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
-  await search.assertFirstCardAddable()
-})
-
-authTest('TC-SEARCH-005+007: add title then re-search shows Добавлено', async ({ authenticatedPage: page }) => {
-  authTest.skip(!reachable, 'BASE_URL not reachable from this environment')
-  const search = new SearchPage(page)
-  await search.goto()
-
-  // Use a stable, well-known TV show unlikely to already be in library
-  await search.search('Severance')
-  await search.waitForResults(15000)
-
-  const firstCard = search.firstResultCard()
-  const addButton = firstCard.getByRole('button', { name: 'Добавить' })
-
-  // Skip if already added (to make test idempotent)
-  const isAlreadyAdded = await firstCard.getByRole('button', { name: 'Добавлено' }).isVisible()
-  if (isAlreadyAdded) {
-    // TC-SEARCH-007 passes implicitly — already added state is shown
-    return
-  }
-
-  await addButton.click()
-  await search.assertDialogOpen()
-
-  // TC-SEARCH-005: confirm add with default status (Хочу посмотреть)
-  await search.confirmAdd()
-
-  await expect(page.getByText(/добавлен в коллекцию/)).toBeVisible({ timeout: 10000 })
-  await search.assertFirstCardAdded()
-
-  // TC-SEARCH-007: re-search same title → card shows Добавлено immediately
-  await search.clearSearch()
-  await search.search('Severance')
-  await search.waitForResults(15000)
-  await search.assertFirstCardAdded()
+  const dialog = await searchPage.openAddDialog(card)
+  await expect(dialog.getByText(title, { exact: true }).first()).toBeVisible()
+  await expect(dialog).not.toContainText('Сериал')
+  await searchPage.cancelAdd()
+  await expect(dialog).toBeHidden()
 })
