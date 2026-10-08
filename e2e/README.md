@@ -20,8 +20,11 @@ community / profile. To add a test to smoke, pass `{ tag: '@smoke' }` as the sec
 and slow data-changing tests (title lifecycle, stats delta, `auto-complete-status.spec`).
 
 CI runs are queued (`concurrency: e2e-production`): they share the test accounts on prod.
-Traces and videos are off in CI — the repo is public and the report is uploaded as an artifact
-(they would carry session cookies). Screenshots on failure stay on. Locally both are kept on failure.
+Traces, videos and screenshots are off in CI — the repo is public and the report is uploaded as an
+artifact (traces carry session cookies, screenshots show the test account's email). The ARIA page
+snapshot of a failed test (`error-context.md`) is replaced by a placeholder in CI: it records form
+values, the password included (`_noPageSnapshotInCI` in `fixtures/index.ts`). Debug CI failures from
+the error messages; locally all artifacts are kept on failure.
 
 ### Required GitHub secrets
 

@@ -46,9 +46,31 @@ type Fixtures = {
    * the default status and no progress. Adds 60 s to the test timeout per call.
    */
   throwawayTitle: (key: ThrowawayKey) => Promise<AddedThrowaway>
+  /** CI only: keeps the page snapshot with form values out of the public report (see below). */
+  _noPageSnapshotInCI: void
 }
 
 export const test = base.extend<Fixtures>({
+  /**
+   * On a failure Playwright writes an ARIA snapshot of the page into error-context.md — with the
+   * VALUES of form fields, password inputs included. CI uploads the report from a public repo, and
+   * a failed login put the test account's password there. Playwright 1.56 has no option for it, but
+   * it skips the snapshot when the test already has an `error-context` attachment: this auto fixture
+   * adds a placeholder one. Its teardown runs before Playwright's own artifact fixture finishes.
+   */
+  _noPageSnapshotInCI: [
+    async ({}, use, testInfo) => {
+      await use()
+      if (process.env.CI && testInfo.errors.length > 0) {
+        await testInfo.attach('error-context', {
+          body: 'Page snapshot is disabled in CI: it records form values, passwords included.',
+          contentType: 'text/plain',
+        })
+      }
+    },
+    { auto: true },
+  ],
+
   libraryPage: async ({ page }, use) => use(new LibraryPage(page)),
   searchPage: async ({ page }, use) => use(new SearchPage(page)),
   mediaPage: async ({ page }, use) => use(new MediaPage(page)),

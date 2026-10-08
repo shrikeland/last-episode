@@ -45,11 +45,13 @@ export default defineConfig({
     baseURL: BASE_URL,
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
-    // The repo is public and CI uploads the report: traces and videos carry session cookies / screens
-    // of the test account, so they are recorded only locally
+    // The repo is public and CI uploads the report: traces carry session cookies, videos and screenshots
+    // show the test account (its email in the login form), so they are recorded only locally.
+    // The ARIA page snapshot (error-context.md) is suppressed in CI by fixtures/index.ts — it records
+    // form values, the password included
     trace: isCI ? 'off' : 'retain-on-failure',
     video: isCI ? 'off' : 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    screenshot: isCI ? 'off' : 'only-on-failure',
     headless: process.env.HEADLESS !== 'false',
     ignoreHTTPSErrors: true,
     // Vercel Protection Bypass — set VERCEL_BYPASS_SECRET in CI secrets
